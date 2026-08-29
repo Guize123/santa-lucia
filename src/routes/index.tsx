@@ -52,9 +52,17 @@ function Landing() {
   return (
     <div className="min-h-screen bg-surface">
       <div className="mx-auto max-w-6xl px-4 py-12 md:px-6 md:py-20">
-        <span className="inline-flex items-center rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">
+        <img
+          src={hospitalLogo.url}
+          alt="Logotipo do Hospital Santa Lúcia — Hospital do Coração"
+          className="h-20 w-auto object-contain"
+          width={320}
+          height={80}
+        />
+        <span className="mt-6 inline-flex items-center rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">
           Ambiente de demonstração · dados fictícios
         </span>
+
         <h1 className="mt-5 max-w-3xl font-display text-3xl font-extrabold leading-tight sm:text-5xl">
           Triagem Nutricional — Hospital Santa Lúcia
         </h1>
