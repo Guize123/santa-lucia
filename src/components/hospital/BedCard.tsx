@@ -27,7 +27,7 @@ export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: Bed
     <Card
       className={`gap-0 overflow-hidden border-border/70 py-0 ${inactive ? "bg-muted/40" : ""}`}
     >
-      <div className={`h-1.5 ${inactive ? "bg-border" : "bg-teal"}`} aria-hidden="true" />
+      <div className={`h-1.5 ${inactive ? "bg-border" : "bg-primary"}`} aria-hidden="true" />
       <CardContent className="p-5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
           <div className="min-w-0">

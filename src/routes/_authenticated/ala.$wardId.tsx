@@ -150,7 +150,7 @@ function AlaPage() {
 
             return (
               <Card key={room.id} className="gap-0 overflow-hidden border-border/70 py-0">
-                <div className="h-1.5 bg-teal" aria-hidden="true" />
+                <div className="h-1.5 bg-primary" aria-hidden="true" />
                 <CardContent className="p-5 sm:p-6">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <div className="min-w-0">

@@ -74,7 +74,7 @@ function AtendimentoPage() {
           const occupied = admissions.filter((a) => bedIds.has(a.bed_id)).length;
           return (
             <Card key={ward.id} className="gap-0 overflow-hidden border-border/70 py-0">
-              <div className="h-1.5 bg-teal" aria-hidden="true" />
+              <div className="h-1.5 bg-primary" aria-hidden="true" />
               <CardContent className="p-6">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                   <div className="min-w-0">
@@ -122,7 +122,7 @@ function AtendimentoPage() {
 
                 <Button asChild className="mt-5 w-full justify-between">
                   <Link to="/ala/$wardId" params={{ wardId: ward.id }}>
-                    Abrir mapa de leitos
+                    Abrir ala
                     <ArrowRight className="size-4" />
                   </Link>
                 </Button>
