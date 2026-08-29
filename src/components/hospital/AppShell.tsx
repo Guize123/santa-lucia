@@ -1,7 +1,10 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import { Activity, LogOut, Search, Settings, Stethoscope } from "lucide-react";
+import { Activity, LogOut, Search, Settings } from "lucide-react";
+
+import hospitalLogo from "@/assets/hospital-logo.png.asset.json";
+
 
 import { Button } from "@/components/ui/button";
 import {
