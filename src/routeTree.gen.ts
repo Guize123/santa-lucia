@@ -16,6 +16,7 @@ import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAlaWardIdRouteImport } from './routes/_authenticated/ala.$wardId'
 import { Route as AuthenticatedAtendimentoCareTypeRouteImport } from './routes/_authenticated/atendimento.$careType'
 import { Route as AuthenticatedPacientePatientIdRouteImport } from './routes/_authenticated/paciente.$patientId'
+import { Route as AuthenticatedTriagemNovaAdmissionIdRouteImport } from './routes/_authenticated/triagem.nova.$admissionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -53,6 +54,12 @@ const AuthenticatedPacientePatientIdRoute =
     path: '/paciente/$patientId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedTriagemNovaAdmissionIdRoute =
+  AuthenticatedTriagemNovaAdmissionIdRouteImport.update({
+    id: '/triagem/nova/$admissionId',
+    path: '/triagem/nova/$admissionId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
   '/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -69,6 +77,7 @@ export interface FileRoutesByTo {
   '/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
   '/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -79,6 +88,7 @@ export interface FileRoutesById {
   '/_authenticated/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/_authenticated/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
   '/_authenticated/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/_authenticated/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/ala/$wardId'
     | '/atendimento/$careType'
     | '/paciente/$patientId'
+    | '/triagem/nova/$admissionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/ala/$wardId'
     | '/atendimento/$careType'
     | '/paciente/$patientId'
+    | '/triagem/nova/$admissionId'
   id:
     | '__root__'
     | '/'
@@ -106,6 +118,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ala/$wardId'
     | '/_authenticated/atendimento/$careType'
     | '/_authenticated/paciente/$patientId'
+    | '/_authenticated/triagem/nova/$admissionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPacientePatientIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/triagem/nova/$admissionId': {
+      id: '/_authenticated/triagem/nova/$admissionId'
+      path: '/triagem/nova/$admissionId'
+      fullPath: '/triagem/nova/$admissionId'
+      preLoaderRoute: typeof AuthenticatedTriagemNovaAdmissionIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -173,6 +193,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlaWardIdRoute: typeof AuthenticatedAlaWardIdRoute
   AuthenticatedAtendimentoCareTypeRoute: typeof AuthenticatedAtendimentoCareTypeRoute
   AuthenticatedPacientePatientIdRoute: typeof AuthenticatedPacientePatientIdRoute
+  AuthenticatedTriagemNovaAdmissionIdRoute: typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -180,6 +201,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlaWardIdRoute: AuthenticatedAlaWardIdRoute,
   AuthenticatedAtendimentoCareTypeRoute: AuthenticatedAtendimentoCareTypeRoute,
   AuthenticatedPacientePatientIdRoute: AuthenticatedPacientePatientIdRoute,
+  AuthenticatedTriagemNovaAdmissionIdRoute:
+    AuthenticatedTriagemNovaAdmissionIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
