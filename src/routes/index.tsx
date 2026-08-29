@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BedDouble, ClipboardList, Ruler, ShieldCheck } from "lucide-react";
 
+import hospitalLogo from "@/assets/hospital-logo.png.asset.json";
+
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CARE_TYPES } from "@/lib/domain";
