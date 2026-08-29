@@ -73,24 +73,53 @@ function AtendimentoPage() {
           const bedIds = new Set(wardBeds.map((b) => b.id));
           const occupied = admissions.filter((a) => bedIds.has(a.bed_id)).length;
           return (
-            <Card key={ward.id} className="border-border/70">
+            <Card key={ward.id} className="gap-0 overflow-hidden border-border/70 py-0">
+              <div className="h-1.5 bg-teal" aria-hidden="true" />
               <CardContent className="p-6">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                   <div className="min-w-0">
-                    <h2 className="truncate font-display text-xl font-bold">{ward.name}</h2>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      Ala · {meta.label}
+                    </p>
+                    <h2 className="mt-1 truncate font-display text-2xl font-bold">{ward.name}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {ward.description || "Sem descrição"}
                     </p>
                   </div>
-                  <Badge variant={ward.is_active ? "default" : "secondary"} className="shrink-0">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                    <Building2 className="size-5" aria-hidden="true" />
+                  </span>
+                </div>
+
+                <dl className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-muted px-4 py-3">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Leitos ativos
+                    </dt>
+                    <dd className="mt-0.5 font-display text-3xl font-bold">{wardBeds.length}</dd>
+                  </div>
+                  <div className="rounded-xl bg-muted px-4 py-3">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Ocupados
+                    </dt>
+                    <dd className="mt-0.5 font-display text-3xl font-bold text-primary">
+                      {occupied}
+                    </dd>
+                  </div>
+                </dl>
+
+                <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                  <span>
+                    <strong className="text-success">
+                      {Math.max(0, wardBeds.length - occupied)}
+                    </strong>{" "}
+                    leito(s) livre(s)
+                  </span>
+                  <Badge variant={ward.is_active ? "default" : "secondary"}>
                     {ward.is_active ? "Ala ativa" : "Ala inativa"}
                   </Badge>
-                </div>
-                <p className="mt-4 text-sm">
-                  <strong>{occupied}</strong> leito(s) ocupado(s) de{" "}
-                  <strong>{wardBeds.length}</strong> ativo(s) ·{" "}
-                  <strong>{Math.max(0, wardBeds.length - occupied)}</strong> livre(s)
                 </p>
+
                 <Button asChild className="mt-5 w-full justify-between">
                   <Link to="/ala/$wardId" params={{ wardId: ward.id }}>
                     Abrir mapa de leitos

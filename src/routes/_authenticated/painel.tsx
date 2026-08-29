@@ -206,30 +206,3 @@ function Painel() {
   );
 }
 
-function Metric({
-  label,
-  value,
-  tone = "muted",
-}: {
-  label: string;
-  value: number;
-  tone?: "muted" | "brand" | "success" | "warning";
-}) {
-  const toneClass =
-    tone === "brand"
-      ? "text-brand"
-      : tone === "success"
-        ? "text-success"
-        : tone === "warning"
-          ? "text-warning-foreground"
-          : "text-foreground";
-  return (
-    <div className="rounded-xl bg-surface px-3 py-2.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={`font-display text-2xl font-bold ${toneClass}`}>
-        {tone === "warning" && value > 0 && <TriangleAlert className="mb-1 mr-1 inline size-4" />}
-        {value}
-      </dd>
-    </div>
-  );
-}
