@@ -53,7 +53,7 @@ function AuthPage() {
     if (!user) return;
     await supabase
       .from("profiles")
-      .upsert({ id: user.id, full_name: fallbackName || user.email || "", email: user.email });
+      .upsert({ id: user.id, full_name: fallbackName || user.email || "", email: user.email ?? null });
   }
 
   async function handleSubmit(event: React.FormEvent) {
