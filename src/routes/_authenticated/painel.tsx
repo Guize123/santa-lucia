@@ -55,108 +55,86 @@ function Painel() {
               const data = overview?.find((o) => o.careType === type.value);
               const typeWards = wards.filter((w) => w.care_type === type.value && w.is_active);
               return (
-                <Card
+                <Link
                   key={type.value}
-                  className="gap-0 overflow-hidden border-border/70 py-0"
+                  to="/atendimento/$careType"
+                  params={{ careType: type.value }}
+                  aria-label={`Abrir atendimento ${type.label}`}
+                  className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
-                  <div className="h-1.5 bg-primary" aria-hidden="true" />
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                          Tipo de atendimento
-                        </p>
-                        <h2 className="mt-1 truncate font-display text-2xl font-bold">
-                          {type.label}
-                        </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">{type.description}</p>
+                  <Card className="gap-0 overflow-hidden border-border/70 py-0 transition-colors group-hover:border-primary/60 group-hover:bg-muted/30">
+                    <div className="h-1.5 bg-primary" aria-hidden="true" />
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            Tipo de atendimento
+                          </p>
+                          <h2 className="mt-1 truncate font-display text-2xl font-bold group-hover:text-primary">
+                            {type.label}
+                          </h2>
+                          <p className="mt-1 text-sm text-muted-foreground">{type.description}</p>
+                        </div>
+                        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                          <BedDouble className="size-5" />
+                        </span>
                       </div>
-                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                        <BedDouble className="size-5" />
-                      </span>
-                    </div>
 
-                    <dl className="mt-5 grid grid-cols-2 gap-3">
-                      <div className="rounded-xl bg-muted px-4 py-3">
-                        <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Leitos ativos
-                        </dt>
-                        <dd className="mt-0.5 font-display text-3xl font-bold">
-                          {data?.beds ?? 0}
-                        </dd>
-                      </div>
-                      <div
-                        className={`rounded-xl px-4 py-3 ${
-                          data && data.neverScreened > 0 ? "bg-brand/10" : "bg-muted"
-                        }`}
-                      >
-                        <dt
-                          className={`text-[11px] font-semibold uppercase tracking-wide ${
-                            data && data.neverScreened > 0
-                              ? "text-brand"
-                              : "text-muted-foreground"
+                      <dl className="mt-5 grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-muted px-4 py-3">
+                          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Leitos ativos
+                          </dt>
+                          <dd className="mt-0.5 font-display text-3xl font-bold">
+                            {data?.beds ?? 0}
+                          </dd>
+                        </div>
+                        <div
+                          className={`rounded-xl px-4 py-3 ${
+                            data && data.neverScreened > 0 ? "bg-brand/10" : "bg-muted"
                           }`}
                         >
-                          Sem triagem
-                        </dt>
-                        <dd
-                          className={`mt-0.5 font-display text-3xl font-bold ${
-                            data && data.neverScreened > 0 ? "text-brand" : ""
-                          }`}
-                        >
-                          {data && data.neverScreened > 0 && (
-                            <TriangleAlert className="mb-1 mr-1 inline size-5" aria-hidden="true" />
-                          )}
-                          {data?.neverScreened ?? 0}
-                        </dd>
-                      </div>
-                    </dl>
+                          <dt
+                            className={`text-[11px] font-semibold uppercase tracking-wide ${
+                              data && data.neverScreened > 0
+                                ? "text-brand"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            Sem triagem
+                          </dt>
+                          <dd
+                            className={`mt-0.5 font-display text-3xl font-bold ${
+                              data && data.neverScreened > 0 ? "text-brand" : ""
+                            }`}
+                          >
+                            {data && data.neverScreened > 0 && (
+                              <TriangleAlert className="mb-1 mr-1 inline size-5" aria-hidden="true" />
+                            )}
+                            {data?.neverScreened ?? 0}
+                          </dd>
+                        </div>
+                      </dl>
 
-                    <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-                      <span>
-                        <strong className="text-foreground">{data?.occupied ?? 0}</strong> ocupado(s)
-                      </span>
-                      <span>
-                        <strong className="text-success">{data?.free ?? 0}</strong> livre(s)
-                      </span>
-                      <span>
-                        <strong className="text-foreground">{data?.screenedLast7Days ?? 0}</strong>{" "}
-                        triagem(ns) em 7 dias
-                      </span>
-                      <span>
-                        <strong className="text-foreground">{typeWards.length}</strong> ala(s)
-                        ativa(s)
-                      </span>
-                    </p>
-
-                    <div className="mt-5 space-y-2">
-                      {typeWards.length === 0 && (
-                        <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-                          Nenhuma ala ativa cadastrada para este tipo de atendimento.
-                        </p>
-                      )}
-                      {typeWards.map((ward) => (
-                        <Button
-                          key={ward.id}
-                          asChild
-                          variant="outline"
-                          className="h-auto w-full justify-between px-4 py-3"
-                        >
-                          <Link to="/ala/$wardId" params={{ wardId: ward.id }}>
-                            <span className="truncate text-left font-semibold">{ward.name}</span>
-                            <ArrowRight className="size-4 shrink-0" />
-                          </Link>
-                        </Button>
-                      ))}
-                    </div>
-
-                    <Button asChild className="mt-4 w-full">
-                      <Link to="/atendimento/$careType" params={{ careType: type.value }}>
-                        Ver atendimento {type.short}
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+                      <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                        <span>
+                          <strong className="text-foreground">{data?.occupied ?? 0}</strong> ocupado(s)
+                        </span>
+                        <span>
+                          <strong className="text-success">{data?.free ?? 0}</strong> livre(s)
+                        </span>
+                        <span>
+                          <strong className="text-foreground">{data?.screenedLast7Days ?? 0}</strong>{" "}
+                          triagem(ns) em 7 dias
+                        </span>
+                        <span>
+                          <strong className="text-foreground">{typeWards.length}</strong> ala(s)
+                          ativa(s)
+                        </span>
+                      </p>
+                    </CardContent>
+                  </Card>
+                </Link>
               );
             })}
       </div>
