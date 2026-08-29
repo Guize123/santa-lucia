@@ -73,10 +73,14 @@ export function AppShell({
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:flex sm:justify-between md:px-6">
           <Link to="/painel" className="flex min-w-0 items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
-              <Stethoscope className="size-5" />
-            </span>
-            <span className="min-w-0">
+            <img
+              src={hospitalLogo.url}
+              alt="Logotipo do Hospital Santa Lúcia — Hospital do Coração"
+              className="h-10 w-auto shrink-0 object-contain"
+              width={160}
+              height={40}
+            />
+            <span className="min-w-0 border-l border-border pl-3">
               <span className="block truncate font-display text-sm font-bold sm:text-base">
                 Triagem Nutricional
               </span>
@@ -85,6 +89,7 @@ export function AppShell({
               </span>
             </span>
           </Link>
+
           <div className="flex shrink-0 items-center gap-2">
             <Button
               variant="outline"
