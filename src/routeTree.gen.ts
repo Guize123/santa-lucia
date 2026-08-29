@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedAlaWardIdRouteImport } from './routes/_authenticated/ala.$wardId'
 import { Route as AuthenticatedAtendimentoCareTypeRouteImport } from './routes/_authenticated/atendimento.$careType'
+import { Route as AuthenticatedPacientePatientIdRouteImport } from './routes/_authenticated/paciente.$patientId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,12 @@ const AuthenticatedAtendimentoCareTypeRoute =
     path: '/atendimento/$careType',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPacientePatientIdRoute =
+  AuthenticatedPacientePatientIdRouteImport.update({
+    id: '/paciente/$patientId',
+    path: '/paciente/$patientId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/painel': typeof AuthenticatedPainelRoute
   '/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
+  '/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -60,6 +68,7 @@ export interface FileRoutesByTo {
   '/painel': typeof AuthenticatedPainelRoute
   '/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
+  '/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,13 +78,25 @@ export interface FileRoutesById {
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/_authenticated/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
+  '/_authenticated/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/painel' | '/ala/$wardId' | '/atendimento/$careType'
+    | '/'
+    | '/auth'
+    | '/painel'
+    | '/ala/$wardId'
+    | '/atendimento/$careType'
+    | '/paciente/$patientId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/painel' | '/ala/$wardId' | '/atendimento/$careType'
+  to:
+    | '/'
+    | '/auth'
+    | '/painel'
+    | '/ala/$wardId'
+    | '/atendimento/$careType'
+    | '/paciente/$patientId'
   id:
     | '__root__'
     | '/'
@@ -84,6 +105,7 @@ export interface FileRouteTypes {
     | '/_authenticated/painel'
     | '/_authenticated/ala/$wardId'
     | '/_authenticated/atendimento/$careType'
+    | '/_authenticated/paciente/$patientId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -136,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAtendimentoCareTypeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/paciente/$patientId': {
+      id: '/_authenticated/paciente/$patientId'
+      path: '/paciente/$patientId'
+      fullPath: '/paciente/$patientId'
+      preLoaderRoute: typeof AuthenticatedPacientePatientIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -143,12 +172,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedAlaWardIdRoute: typeof AuthenticatedAlaWardIdRoute
   AuthenticatedAtendimentoCareTypeRoute: typeof AuthenticatedAtendimentoCareTypeRoute
+  AuthenticatedPacientePatientIdRoute: typeof AuthenticatedPacientePatientIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedAlaWardIdRoute: AuthenticatedAlaWardIdRoute,
   AuthenticatedAtendimentoCareTypeRoute: AuthenticatedAtendimentoCareTypeRoute,
+  AuthenticatedPacientePatientIdRoute: AuthenticatedPacientePatientIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
