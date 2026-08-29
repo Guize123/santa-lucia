@@ -17,6 +17,7 @@ import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAlaWardIdRouteImport } from './routes/_authenticated/ala.$wardId'
 import { Route as AuthenticatedAtendimentoCareTypeRouteImport } from './routes/_authenticated/atendimento.$careType'
 import { Route as AuthenticatedPacientePatientIdRouteImport } from './routes/_authenticated/paciente.$patientId'
+import { Route as AuthenticatedQuartoRoomIdRouteImport } from './routes/_authenticated/quarto.$roomId'
 import { Route as AuthenticatedTriagemNovaAdmissionIdRouteImport } from './routes/_authenticated/triagem.nova.$admissionId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -60,6 +61,12 @@ const AuthenticatedPacientePatientIdRoute =
     path: '/paciente/$patientId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedQuartoRoomIdRoute =
+  AuthenticatedQuartoRoomIdRouteImport.update({
+    id: '/quarto/$roomId',
+    path: '/quarto/$roomId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedTriagemNovaAdmissionIdRoute =
   AuthenticatedTriagemNovaAdmissionIdRouteImport.update({
     id: '/triagem/nova/$admissionId',
@@ -75,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
   '/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/quarto/$roomId': typeof AuthenticatedQuartoRoomIdRoute
   '/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +93,7 @@ export interface FileRoutesByTo {
   '/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
   '/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/quarto/$roomId': typeof AuthenticatedQuartoRoomIdRoute
   '/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRoutesById {
@@ -97,6 +106,7 @@ export interface FileRoutesById {
   '/_authenticated/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
   '/_authenticated/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
   '/_authenticated/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/_authenticated/quarto/$roomId': typeof AuthenticatedQuartoRoomIdRoute
   '/_authenticated/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRouteTypes {
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/ala/$wardId'
     | '/atendimento/$careType'
     | '/paciente/$patientId'
+    | '/quarto/$roomId'
     | '/triagem/nova/$admissionId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/ala/$wardId'
     | '/atendimento/$careType'
     | '/paciente/$patientId'
+    | '/quarto/$roomId'
     | '/triagem/nova/$admissionId'
   id:
     | '__root__'
@@ -130,6 +142,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ala/$wardId'
     | '/_authenticated/atendimento/$careType'
     | '/_authenticated/paciente/$patientId'
+    | '/_authenticated/quarto/$roomId'
     | '/_authenticated/triagem/nova/$admissionId'
   fileRoutesById: FileRoutesById
 }
@@ -197,6 +210,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPacientePatientIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/quarto/$roomId': {
+      id: '/_authenticated/quarto/$roomId'
+      path: '/quarto/$roomId'
+      fullPath: '/quarto/$roomId'
+      preLoaderRoute: typeof AuthenticatedQuartoRoomIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/triagem/nova/$admissionId': {
       id: '/_authenticated/triagem/nova/$admissionId'
       path: '/triagem/nova/$admissionId'
@@ -213,6 +233,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlaWardIdRoute: typeof AuthenticatedAlaWardIdRoute
   AuthenticatedAtendimentoCareTypeRoute: typeof AuthenticatedAtendimentoCareTypeRoute
   AuthenticatedPacientePatientIdRoute: typeof AuthenticatedPacientePatientIdRoute
+  AuthenticatedQuartoRoomIdRoute: typeof AuthenticatedQuartoRoomIdRoute
   AuthenticatedTriagemNovaAdmissionIdRoute: typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 
@@ -222,6 +243,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlaWardIdRoute: AuthenticatedAlaWardIdRoute,
   AuthenticatedAtendimentoCareTypeRoute: AuthenticatedAtendimentoCareTypeRoute,
   AuthenticatedPacientePatientIdRoute: AuthenticatedPacientePatientIdRoute,
+  AuthenticatedQuartoRoomIdRoute: AuthenticatedQuartoRoomIdRoute,
   AuthenticatedTriagemNovaAdmissionIdRoute:
     AuthenticatedTriagemNovaAdmissionIdRoute,
 }
