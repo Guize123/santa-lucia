@@ -102,9 +102,14 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
       <Card className="w-full max-w-md">
         <CardHeader className="items-start">
-          <span className="grid size-11 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <Stethoscope className="size-5" />
-          </span>
+          <img
+            src={hospitalLogo.url}
+            alt="Logotipo do Hospital Santa Lúcia — Hospital do Coração"
+            className="h-14 w-auto object-contain"
+            width={220}
+            height={56}
+          />
+
           <CardTitle className="mt-3 font-display text-2xl">
             {mode === "login" ? "Entrar no sistema" : "Criar acesso profissional"}
           </CardTitle>
