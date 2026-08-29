@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { BedDouble, ClipboardList, Ruler, ShieldCheck } from "lucide-react";
 
 import hospitalLogo from "@/assets/hospital-logo.png.asset.json";
