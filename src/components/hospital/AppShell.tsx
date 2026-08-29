@@ -120,7 +120,7 @@ export function AppShell({
                         <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                       ) : (
                         <BreadcrumbLink asChild>
-                          <Link to={crumb.to} params={crumb.params}>
+                          <Link to={crumb.to as never} params={(crumb.params ?? {}) as never}>
                             {crumb.label}
                           </Link>
                         </BreadcrumbLink>

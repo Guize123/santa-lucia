@@ -156,7 +156,7 @@ function NovaTriagemPage() {
             race,
             armCircumferenceCm: num(arm),
             kneeHeightCm: num(knee),
-            explicitProtocol,
+            ...(explicitProtocol ? { explicitProtocol } : {}),
             professionalName,
           })
         : calculateWeightChumleaComplete({
@@ -166,7 +166,7 @@ function NovaTriagemPage() {
             kneeHeightCm: num(knee),
             armCircumferenceCm: num(arm),
             subscapularSkinfoldMm: num(skinfold),
-            explicitProtocol,
+            ...(explicitProtocol ? { explicitProtocol } : {}),
             professionalName,
           });
     if (!result.ok) {
@@ -213,7 +213,7 @@ function NovaTriagemPage() {
       race,
       kneeHeightCm: num(knee),
       ageYears: age ?? NaN,
-      explicitProtocol,
+      ...(explicitProtocol ? { explicitProtocol } : {}),
       professionalName,
     });
     if (!result.ok) {

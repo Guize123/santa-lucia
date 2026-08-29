@@ -1,5 +1,7 @@
 import type { Race } from "./anthropometricCalculations";
 
+export type { Race };
+
 export type CareType = "particular" | "sus" | "uti";
 export type MeasureSource = "aferido" | "estimado" | "relatado";
 export type AdmissionStatus = "ativa" | "alta";
