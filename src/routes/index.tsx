@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { BedDouble, ClipboardList, Ruler, ShieldCheck } from "lucide-react";
 
 import hospitalLogo from "@/assets/hospital-logo.png.asset.json";
@@ -8,7 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CARE_TYPES } from "@/lib/domain";
 
+// MODO DEMONSTRAÇÃO: entrada direta no painel, sem login.
+// Defina DEMO_OPEN_ACCESS = false para voltar a exibir esta landing pública.
+const DEMO_OPEN_ACCESS = true;
+
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    if (DEMO_OPEN_ACCESS) throw redirect({ to: "/painel" });
+  },
   head: () => ({
     meta: [
       { title: "Triagem Nutricional — Hospital Santa Lúcia" },
