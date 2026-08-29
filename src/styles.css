@@ -88,8 +88,8 @@
   --ring: oklch(0.55 0.12 264);
   --brand: oklch(0.5 0.185 27);
   --brand-foreground: oklch(0.99 0.006 27);
-  --teal: oklch(0.47 0.145 264);
-  --teal-foreground: oklch(0.99 0.004 260);
+  --teal: oklch(0.55 0.085 208);
+  --teal-foreground: oklch(0.99 0.004 208);
   --success: oklch(0.62 0.1 165);
   --success-foreground: oklch(0.99 0.004 165);
   --warning: oklch(0.78 0.13 78);
@@ -133,8 +133,8 @@
   --ring: oklch(0.62 0.1 264);
   --brand: oklch(0.64 0.18 27);
   --brand-foreground: oklch(0.16 0.03 27);
-  --teal: oklch(0.72 0.115 264);
-  --teal-foreground: oklch(0.2 0.04 264);
+  --teal: oklch(0.72 0.07 208);
+  --teal-foreground: oklch(0.18 0.03 208);
   --success: oklch(0.72 0.09 165);
   --success-foreground: oklch(0.18 0.03 165);
   --warning: oklch(0.8 0.12 78);

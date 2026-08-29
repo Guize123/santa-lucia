@@ -55,11 +55,20 @@ function Painel() {
               const data = overview?.find((o) => o.careType === type.value);
               const typeWards = wards.filter((w) => w.care_type === type.value && w.is_active);
               return (
-                <Card key={type.value} className="overflow-hidden border-border/70">
+                <Card
+                  key={type.value}
+                  className="gap-0 overflow-hidden border-border/70 py-0"
+                >
+                  <div className="h-1.5 bg-teal" aria-hidden="true" />
                   <CardContent className="p-6">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                       <div className="min-w-0">
-                        <h2 className="font-display text-2xl font-bold">{type.label}</h2>
+                        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          Tipo de atendimento
+                        </p>
+                        <h2 className="mt-1 truncate font-display text-2xl font-bold">
+                          {type.label}
+                        </h2>
                         <p className="mt-1 text-sm text-muted-foreground">{type.description}</p>
                       </div>
                       <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
@@ -68,19 +77,56 @@ function Painel() {
                     </div>
 
                     <dl className="mt-5 grid grid-cols-2 gap-3">
-                      <Metric label="Leitos ativos" value={data?.beds ?? 0} />
-                      <Metric label="Leitos ocupados" value={data?.occupied ?? 0} tone="brand" />
-                      <Metric label="Leitos livres" value={data?.free ?? 0} tone="success" />
-                      <Metric
-                        label="Sem triagem"
-                        value={data?.neverScreened ?? 0}
-                        tone={data && data.neverScreened > 0 ? "warning" : "muted"}
-                      />
+                      <div className="rounded-xl bg-muted px-4 py-3">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Leitos ativos
+                        </dt>
+                        <dd className="mt-0.5 font-display text-3xl font-bold">
+                          {data?.beds ?? 0}
+                        </dd>
+                      </div>
+                      <div
+                        className={`rounded-xl px-4 py-3 ${
+                          data && data.neverScreened > 0 ? "bg-brand/10" : "bg-muted"
+                        }`}
+                      >
+                        <dt
+                          className={`text-[11px] font-semibold uppercase tracking-wide ${
+                            data && data.neverScreened > 0
+                              ? "text-brand"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          Sem triagem
+                        </dt>
+                        <dd
+                          className={`mt-0.5 font-display text-3xl font-bold ${
+                            data && data.neverScreened > 0 ? "text-brand" : ""
+                          }`}
+                        >
+                          {data && data.neverScreened > 0 && (
+                            <TriangleAlert className="mb-1 mr-1 inline size-5" aria-hidden="true" />
+                          )}
+                          {data?.neverScreened ?? 0}
+                        </dd>
+                      </div>
                     </dl>
 
-                    <p className="mt-4 text-xs text-muted-foreground">
-                      {data?.screenedLast7Days ?? 0} triagem(ns) registrada(s) nos últimos 7 dias ·{" "}
-                      {typeWards.length} ala(s) ativa(s)
+                    <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                      <span>
+                        <strong className="text-foreground">{data?.occupied ?? 0}</strong> ocupado(s)
+                      </span>
+                      <span>
+                        <strong className="text-success">{data?.free ?? 0}</strong> livre(s)
+                      </span>
+                      <span>
+                        <strong className="text-foreground">{data?.screenedLast7Days ?? 0}</strong>{" "}
+                        triagem(ns) em 7 dias
+                      </span>
+                      <span>
+                        <strong className="text-foreground">{typeWards.length}</strong> ala(s)
+                        ativa(s)
+                      </span>
                     </p>
 
                     <div className="mt-5 space-y-2">
@@ -160,30 +206,3 @@ function Painel() {
   );
 }
 
-function Metric({
-  label,
-  value,
-  tone = "muted",
-}: {
-  label: string;
-  value: number;
-  tone?: "muted" | "brand" | "success" | "warning";
-}) {
-  const toneClass =
-    tone === "brand"
-      ? "text-brand"
-      : tone === "success"
-        ? "text-success"
-        : tone === "warning"
-          ? "text-warning-foreground"
-          : "text-foreground";
-  return (
-    <div className="rounded-xl bg-surface px-3 py-2.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={`font-display text-2xl font-bold ${toneClass}`}>
-        {tone === "warning" && value > 0 && <TriangleAlert className="mb-1 mr-1 inline size-4" />}
-        {value}
-      </dd>
-    </div>
-  );
-}
