@@ -14,9 +14,9 @@ import {
 
 interface BedCardProps {
   bed: Bed;
-  admission?: Admission;
-  patient?: Patient;
-  lastScreening?: string;
+  admission?: Admission | undefined;
+  patient?: Patient | undefined;
+  lastScreening?: string | undefined;
   onAdmit: (bed: Bed) => void;
 }
 
