@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, DoorOpen } from "lucide-react";
+import { DoorOpen } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AppShell } from "@/components/hospital/AppShell";
