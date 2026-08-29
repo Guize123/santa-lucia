@@ -10,33 +10,133 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
+import { Route as AuthenticatedAlaWardIdRouteImport } from './routes/_authenticated/ala.$wardId'
+import { Route as AuthenticatedAtendimentoCareTypeRouteImport } from './routes/_authenticated/atendimento.$careType'
+import { Route as AuthenticatedPacientePatientIdRouteImport } from './routes/_authenticated/paciente.$patientId'
+import { Route as AuthenticatedTriagemNovaAdmissionIdRouteImport } from './routes/_authenticated/triagem.nova.$admissionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAlaWardIdRoute = AuthenticatedAlaWardIdRouteImport.update({
+  id: '/ala/$wardId',
+  path: '/ala/$wardId',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAtendimentoCareTypeRoute =
+  AuthenticatedAtendimentoCareTypeRouteImport.update({
+    id: '/atendimento/$careType',
+    path: '/atendimento/$careType',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPacientePatientIdRoute =
+  AuthenticatedPacientePatientIdRouteImport.update({
+    id: '/paciente/$patientId',
+    path: '/paciente/$patientId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTriagemNovaAdmissionIdRoute =
+  AuthenticatedTriagemNovaAdmissionIdRouteImport.update({
+    id: '/triagem/nova/$admissionId',
+    path: '/triagem/nova/$admissionId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/painel': typeof AuthenticatedPainelRoute
+  '/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
+  '/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
+  '/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/painel': typeof AuthenticatedPainelRoute
+  '/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
+  '/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
+  '/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/painel': typeof AuthenticatedPainelRoute
+  '/_authenticated/ala/$wardId': typeof AuthenticatedAlaWardIdRoute
+  '/_authenticated/atendimento/$careType': typeof AuthenticatedAtendimentoCareTypeRoute
+  '/_authenticated/paciente/$patientId': typeof AuthenticatedPacientePatientIdRoute
+  '/_authenticated/triagem/nova/$admissionId': typeof AuthenticatedTriagemNovaAdmissionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/painel'
+    | '/ala/$wardId'
+    | '/atendimento/$careType'
+    | '/paciente/$patientId'
+    | '/triagem/nova/$admissionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/painel'
+    | '/ala/$wardId'
+    | '/atendimento/$careType'
+    | '/paciente/$patientId'
+    | '/triagem/nova/$admissionId'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/admin'
+    | '/_authenticated/painel'
+    | '/_authenticated/ala/$wardId'
+    | '/_authenticated/atendimento/$careType'
+    | '/_authenticated/paciente/$patientId'
+    | '/_authenticated/triagem/nova/$admissionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +148,91 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/painel': {
+      id: '/_authenticated/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof AuthenticatedPainelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ala/$wardId': {
+      id: '/_authenticated/ala/$wardId'
+      path: '/ala/$wardId'
+      fullPath: '/ala/$wardId'
+      preLoaderRoute: typeof AuthenticatedAlaWardIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/atendimento/$careType': {
+      id: '/_authenticated/atendimento/$careType'
+      path: '/atendimento/$careType'
+      fullPath: '/atendimento/$careType'
+      preLoaderRoute: typeof AuthenticatedAtendimentoCareTypeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/paciente/$patientId': {
+      id: '/_authenticated/paciente/$patientId'
+      path: '/paciente/$patientId'
+      fullPath: '/paciente/$patientId'
+      preLoaderRoute: typeof AuthenticatedPacientePatientIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/triagem/nova/$admissionId': {
+      id: '/_authenticated/triagem/nova/$admissionId'
+      path: '/triagem/nova/$admissionId'
+      fullPath: '/triagem/nova/$admissionId'
+      preLoaderRoute: typeof AuthenticatedTriagemNovaAdmissionIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
+  AuthenticatedAlaWardIdRoute: typeof AuthenticatedAlaWardIdRoute
+  AuthenticatedAtendimentoCareTypeRoute: typeof AuthenticatedAtendimentoCareTypeRoute
+  AuthenticatedPacientePatientIdRoute: typeof AuthenticatedPacientePatientIdRoute
+  AuthenticatedTriagemNovaAdmissionIdRoute: typeof AuthenticatedTriagemNovaAdmissionIdRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedPainelRoute: AuthenticatedPainelRoute,
+  AuthenticatedAlaWardIdRoute: AuthenticatedAlaWardIdRoute,
+  AuthenticatedAtendimentoCareTypeRoute: AuthenticatedAtendimentoCareTypeRoute,
+  AuthenticatedPacientePatientIdRoute: AuthenticatedPacientePatientIdRoute,
+  AuthenticatedTriagemNovaAdmissionIdRoute:
+    AuthenticatedTriagemNovaAdmissionIdRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
