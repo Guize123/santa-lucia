@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 
 import { AppShell } from "@/components/hospital/AppShell";
 import { Badge } from "@/components/ui/badge";
@@ -73,61 +73,64 @@ function AtendimentoPage() {
           const bedIds = new Set(wardBeds.map((b) => b.id));
           const occupied = admissions.filter((a) => bedIds.has(a.bed_id)).length;
           return (
-            <Card key={ward.id} className="gap-0 overflow-hidden border-border/70 py-0">
-              <div className="h-1.5 bg-primary" aria-hidden="true" />
-              <CardContent className="p-6">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      Ala · {meta.label}
-                    </p>
-                    <h2 className="mt-1 truncate font-display text-2xl font-bold">{ward.name}</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {ward.description || "Sem descrição"}
-                    </p>
+            <Link
+              key={ward.id}
+              to="/ala/$wardId"
+              params={{ wardId: ward.id }}
+              aria-label={`Abrir ala ${ward.name}`}
+              className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              <Card className="gap-0 overflow-hidden border-border/70 py-0 transition-colors group-hover:border-primary/60 group-hover:bg-muted/30">
+                <div className="h-1.5 bg-primary" aria-hidden="true" />
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Ala · {meta.label}
+                      </p>
+                      <h2 className="mt-1 truncate font-display text-2xl font-bold group-hover:text-primary">
+                        {ward.name}
+                      </h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {ward.description || "Sem descrição"}
+                      </p>
+                    </div>
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                      <Building2 className="size-5" aria-hidden="true" />
+                    </span>
                   </div>
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                    <Building2 className="size-5" aria-hidden="true" />
-                  </span>
-                </div>
 
-                <dl className="mt-5 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-muted px-4 py-3">
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Leitos ativos
-                    </dt>
-                    <dd className="mt-0.5 font-display text-3xl font-bold">{wardBeds.length}</dd>
-                  </div>
-                  <div className="rounded-xl bg-muted px-4 py-3">
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Ocupados
-                    </dt>
-                    <dd className="mt-0.5 font-display text-3xl font-bold text-primary">
-                      {occupied}
-                    </dd>
-                  </div>
-                </dl>
+                  <dl className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-muted px-4 py-3">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Leitos ativos
+                      </dt>
+                      <dd className="mt-0.5 font-display text-3xl font-bold">{wardBeds.length}</dd>
+                    </div>
+                    <div className="rounded-xl bg-muted px-4 py-3">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Ocupados
+                      </dt>
+                      <dd className="mt-0.5 font-display text-3xl font-bold text-primary">
+                        {occupied}
+                      </dd>
+                    </div>
+                  </dl>
 
-                <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-                  <span>
-                    <strong className="text-success">
-                      {Math.max(0, wardBeds.length - occupied)}
-                    </strong>{" "}
-                    leito(s) livre(s)
-                  </span>
-                  <Badge variant={ward.is_active ? "default" : "secondary"}>
-                    {ward.is_active ? "Ala ativa" : "Ala inativa"}
-                  </Badge>
-                </p>
-
-                <Button asChild className="mt-5 w-full justify-between">
-                  <Link to="/ala/$wardId" params={{ wardId: ward.id }}>
-                    Abrir ala
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+                  <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                    <span>
+                      <strong className="text-success">
+                        {Math.max(0, wardBeds.length - occupied)}
+                      </strong>{" "}
+                      leito(s) livre(s)
+                    </span>
+                    <Badge variant={ward.is_active ? "default" : "secondary"}>
+                      {ward.is_active ? "Ala ativa" : "Ala inativa"}
+                    </Badge>
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>
