@@ -94,7 +94,7 @@ export function NewAdmissionDialog({
           .insert({
             full_name: parsed.full_name,
             medical_record: parsed.medical_record || null,
-            birth_date: parsed.birth_date || null,
+            birth_date: birthDateFromAge(parsed.age ?? ""),
             sex: parsed.sex,
             race: parsed.race,
           })
