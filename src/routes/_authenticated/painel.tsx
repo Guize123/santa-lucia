@@ -1,17 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { BedDouble, ClipboardList, TriangleAlert } from "lucide-react";
+import { BedDouble, ClipboardList, Printer, Tag, TriangleAlert } from "lucide-react";
 
 import { AppShell } from "@/components/hospital/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CARE_TYPES, formatDateTime } from "@/lib/domain";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CARE_TYPES, formatDate, formatDateTime } from "@/lib/domain";
 import {
   buildOverview,
   fetchAdmissions,
   fetchBeds,
+  fetchPatients,
+  fetchRooms,
   fetchScreenings,
   fetchWards,
 } from "@/lib/queries";
@@ -40,6 +43,8 @@ export const Route = createFileRoute("/_authenticated/painel")({
 function Painel() {
   const { data: wards = [], isPending } = useQuery({ queryKey: ["wards"], queryFn: fetchWards });
   const { data: beds = [] } = useQuery({ queryKey: ["beds"], queryFn: () => fetchBeds() });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms"], queryFn: () => fetchRooms() });
+  const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
   const { data: admissions = [] } = useQuery({
     queryKey: ["admissions", "ativa"],
     queryFn: () => fetchAdmissions({ status: "ativa" }),
@@ -62,6 +67,24 @@ function Painel() {
         </Button>
       }
     >
+      <Tabs defaultValue="visao-geral">
+        <TabsList className="mb-5">
+          <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
+          <TabsTrigger value="etiquetas">
+            <Tag className="size-4" aria-hidden="true" />
+            Etiquetas
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="etiquetas" className="mt-0">
+          <EtiquetasTab
+            wards={wards}
+            beds={beds}
+            rooms={rooms}
+            patients={patients}
+            admissions={admissions}
+          />
+        </TabsContent>
+        <TabsContent value="visao-geral" className="mt-0">
       <div className="grid gap-5 lg:grid-cols-3">
         {isPending
           ? CARE_TYPES.map((type) => <Skeleton key={type.value} className="h-56 rounded-2xl" />)
@@ -194,7 +217,133 @@ function Painel() {
         Classificação automática de risco nutricional (NRS-2002, MUST, GLIM) não faz parte deste MVP.
         O modelo já está preparado para reavaliações e dashboard futuro.
       </p>
+        </TabsContent>
+      </Tabs>
     </AppShell>
+  );
+}
+
+interface EtiquetasTabProps {
+  wards: import("@/lib/domain").Ward[];
+  beds: import("@/lib/domain").Bed[];
+  rooms: import("@/lib/domain").Room[];
+  patients: import("@/lib/domain").Patient[];
+  admissions: import("@/lib/domain").Admission[];
+}
+
+function EtiquetasTab({ wards, beds, rooms, patients, admissions }: EtiquetasTabProps) {
+  const etiquetas = useMemo(
+    () =>
+      admissions.map((admission) => {
+        const patient = patients.find((p) => p.id === admission.patient_id);
+        const bed = beds.find((b) => b.id === admission.bed_id);
+        const ward = bed ? wards.find((w) => w.id === bed.ward_id) : undefined;
+        const room = bed?.room_id ? rooms.find((r) => r.id === bed.room_id) : undefined;
+        return { admission, patient, bed, ward, room };
+      }),
+    [admissions, patients, beds, wards, rooms],
+  );
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          Etiquetas de dieta dos pacientes internados, agrupadas por tipo de atendimento.
+        </p>
+        <Button variant="outline" onClick={() => window.print()}>
+          <Printer className="size-4" aria-hidden="true" />
+          Imprimir etiquetas
+        </Button>
+      </div>
+
+      {CARE_TYPES.map((type) => {
+        const group = etiquetas.filter((e) => e.admission.care_type === type.value);
+        return (
+          <section key={type.value} aria-labelledby={`etiquetas-${type.value}`}>
+            <div className="flex items-center gap-3">
+              <h2
+                id={`etiquetas-${type.value}`}
+                className="font-display text-xl font-bold text-foreground"
+              >
+                {type.label}
+              </h2>
+              <Badge variant="secondary">{group.length} etiqueta(s)</Badge>
+            </div>
+
+            {group.length === 0 ? (
+              <Card className="mt-4">
+                <CardContent className="p-5 text-sm text-muted-foreground">
+                  Nenhum paciente internado neste atendimento.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {group.map(({ admission, patient, bed, ward, room }) => (
+                  <article
+                    key={admission.id}
+                    className="overflow-hidden rounded-xl border-2 border-dashed border-border bg-card shadow-sm"
+                  >
+                    <div className="h-1.5 bg-primary" aria-hidden="true" />
+                    <div className="p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            {ward?.name ?? "—"}
+                            {room ? ` · ${room.name}` : ""}
+                          </p>
+                          <h3 className="mt-1 truncate font-display text-lg font-bold leading-tight">
+                            {patient?.full_name ?? "Paciente"}
+                          </h3>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 font-bold">
+                          {bed?.label ?? "—"}
+                        </Badge>
+                      </div>
+
+                      <dl className="mt-4 space-y-1.5 text-xs text-muted-foreground">
+                        <div className="flex justify-between gap-2">
+                          <dt>Internação</dt>
+                          <dd className="font-medium text-foreground">
+                            {formatDate(admission.admitted_at)}
+                          </dd>
+                        </div>
+                        {admission.main_diagnosis && (
+                          <div className="flex justify-between gap-2">
+                            <dt>Diagnóstico</dt>
+                            <dd className="text-right font-medium text-foreground">
+                              {admission.main_diagnosis}
+                            </dd>
+                          </div>
+                        )}
+                      </dl>
+
+                      <div className="mt-4 rounded-lg bg-brand/10 px-4 py-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand">
+                          Observação da dieta
+                        </p>
+                        <p className="mt-0.5 text-sm font-bold text-foreground">
+                          {admission.notes || "Dieta padrão, sem observações"}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 border-t border-dashed border-border pt-3">
+                        <Link
+                          to="/paciente/$patientId"
+                          params={{ patientId: admission.patient_id }}
+                          className="text-xs font-semibold text-primary hover:underline"
+                        >
+                          Abrir ficha do paciente
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
