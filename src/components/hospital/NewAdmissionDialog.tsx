@@ -85,7 +85,7 @@ export function NewAdmissionDialog({
         const parsed = newPatientSchema.parse({
           full_name: fullName,
           medical_record: record,
-          birth_date: birthDate,
+          age,
           sex,
           race,
         });
