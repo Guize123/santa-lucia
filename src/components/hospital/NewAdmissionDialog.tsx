@@ -30,10 +30,23 @@ import { fetchAdmissions, fetchPatients } from "@/lib/queries";
 const newPatientSchema = z.object({
   full_name: z.string().trim().min(3, "Informe o nome completo").max(120),
   medical_record: z.string().trim().max(40).optional(),
-  birth_date: z.string().trim().max(10).optional(),
+  age: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (Number(v) >= 0 && Number(v) <= 120), "Idade inválida")
+    .optional(),
   sex: z.enum(["F", "M"]),
   race: z.custom<Race>(),
 });
+
+/** Converte a idade informada em uma data de nascimento aproximada (mesmo dia/mês de hoje). */
+function birthDateFromAge(age: string): string | null {
+  const years = Number(age);
+  if (!age || Number.isNaN(years)) return null;
+  const now = new Date();
+  const d = new Date(now.getFullYear() - years, now.getMonth(), now.getDate());
+  return d.toISOString().slice(0, 10);
+}
 
 export function NewAdmissionDialog({
   bed,
