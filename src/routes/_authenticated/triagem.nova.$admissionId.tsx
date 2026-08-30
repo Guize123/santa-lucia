@@ -698,8 +698,31 @@ function NovaTriagemPage() {
             </CardContent>
           </Card>
         </div>
-
       </div>
+
+      {/* Barra fixa de resumo/ação no celular */}
+      <div className="h-32 lg:hidden" aria-hidden="true" />
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <MiniStat label="Peso" value={formatNumber(weightResult?.value ?? null, " kg")} />
+          <MiniStat label="Altura" value={formatNumber(heightResult?.value ?? null, " cm")} />
+          <MiniStat label="IMC" value={formatNumber(bmiResult?.value ?? null, "")} />
+          <MiniStat label="CB" value={formatNumber(num(arm) || null, " cm")} />
+        </div>
+        <Button
+          className="mt-2 h-12 w-full text-base"
+          onClick={() => setConfirmOpen(true)}
+          disabled={protocolPending}
+        >
+          Revisar e salvar
+        </Button>
+        {protocolPending && (
+          <p className="mt-1 text-center text-xs text-destructive">
+            Selecione o protocolo (branca ou preta).
+          </p>
+        )}
+      </div>
+
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
