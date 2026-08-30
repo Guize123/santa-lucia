@@ -505,21 +505,32 @@ function NovaTriagemPage() {
                 </Alert>
               )}
 
-              <div className="rounded-xl bg-surface p-4">
+              <div className="space-y-2 rounded-xl bg-surface p-4">
+                <ResultLine
+                  label="Peso"
+                  value={formatNumber(weightResult?.value ?? null, " kg")}
+                  source={weightResult?.source ?? null}
+                />
+                <ResultLine
+                  label="Altura"
+                  value={formatNumber(heightResult?.value ?? null, " cm")}
+                  source={heightResult?.source ?? null}
+                />
                 <ResultLine
                   label="IMC calculado"
                   value={formatNumber(bmiResult?.value ?? null, " kg/m²")}
                 />
-                <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+                <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">IMC &lt; 20,5</span>
                   <Badge variant={bmiUnder205 === "sim" ? "destructive" : "secondary"}>
                     {bmiUnder205 === "" ? "Aguardando peso e altura" : bmiUnder205 === "sim" ? "Sim" : "Não"}
                   </Badge>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Preenchido automaticamente a partir do IMC.
+                <p className="text-xs text-muted-foreground">
+                  Resultado atualizado automaticamente conforme AJ e CB são preenchidos.
                 </p>
               </div>
+
             </CardContent>
           </Card>
 
@@ -617,7 +628,19 @@ function NovaTriagemPage() {
                 </Select>
               </div>
               <YesNoField label="Apresenta edema?" value={edema} onChange={setEdema} />
-              <Field label="CB — circunferência do braço (cm)" value={arm} onChange={setArm} />
+              {knowsWeight === "nao" ? (
+                <ReadOnly
+                  label="CB — circunferência do braço (cm)"
+                  value={
+                    Number.isFinite(num(arm)) && num(arm) > 0
+                      ? `${formatNumber(num(arm), " cm")} · já informada na estimativa de peso`
+                      : "Informe a CB na seção Peso e altura"
+                  }
+                />
+              ) : (
+                <Field label="CB — circunferência do braço (cm)" value={arm} onChange={setArm} />
+              )}
+
               <YesNoField
                 label="Paciente AACOC (acordado, atento, consciente, orientado e comunicativo)?"
                 value={aacoc}
@@ -637,7 +660,7 @@ function NovaTriagemPage() {
           </Card>
         </div>
 
-        <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+        <div className="hidden space-y-4 lg:sticky lg:top-6 lg:block lg:self-start">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Valores calculados</CardTitle>
@@ -676,6 +699,30 @@ function NovaTriagemPage() {
           </Card>
         </div>
       </div>
+
+      {/* Barra fixa de resumo/ação no celular */}
+      <div className="h-32 lg:hidden" aria-hidden="true" />
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <MiniStat label="Peso" value={formatNumber(weightResult?.value ?? null, " kg")} />
+          <MiniStat label="Altura" value={formatNumber(heightResult?.value ?? null, " cm")} />
+          <MiniStat label="IMC" value={formatNumber(bmiResult?.value ?? null, "")} />
+          <MiniStat label="CB" value={formatNumber(num(arm) || null, " cm")} />
+        </div>
+        <Button
+          className="mt-2 h-12 w-full text-base"
+          onClick={() => setConfirmOpen(true)}
+          disabled={protocolPending}
+        >
+          Revisar e salvar
+        </Button>
+        {protocolPending && (
+          <p className="mt-1 text-center text-xs text-destructive">
+            Selecione o protocolo (branca ou preta).
+          </p>
+        )}
+      </div>
+
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
@@ -780,7 +827,7 @@ function YesNoField({
             variant={value === option ? "default" : "outline"}
             disabled={disabled}
             aria-pressed={value === option}
-            className={cn("min-w-24 flex-1 sm:flex-none")}
+            className={cn("h-12 min-w-24 flex-1 text-base sm:h-10 sm:flex-none sm:text-sm")}
             onClick={() => onChange(value === option ? "" : option)}
           >
             {option === "sim" ? "Sim" : "Não"}
@@ -804,7 +851,12 @@ function Field({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value)} />
+      <Input
+        inputMode="decimal"
+        className="h-12 text-base sm:h-10 sm:text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
@@ -842,6 +894,15 @@ function ResultLine({
           </Badge>
         )}
       </span>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 flex-1 rounded-lg bg-surface px-2 py-1.5 text-center">
+      <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="truncate text-sm font-bold">{value}</p>
     </div>
   );
 }

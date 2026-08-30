@@ -112,6 +112,34 @@ function PacientePage() {
 
   const age = ageFromBirthDate(patient.birth_date);
 
+  const cond = (lastScreening?.conditions ?? {}) as Record<string, unknown>;
+  const isYes = (key: string) => cond[key] === true;
+  const quickFlags: { label: string; alert: boolean }[] = [
+    ...(isYes("imc_menor_20_5") ? [{ label: "IMC < 20,5", alert: true }] : []),
+    ...(isYes("perda_de_peso") ? [{ label: "Perda de peso", alert: true }] : []),
+    ...(isYes("reducao_fome") ? [{ label: "Redução da fome", alert: true }] : []),
+    ...(isYes("edema") ? [{ label: "Edema", alert: true }] : []),
+    ...(isYes("dm") ? [{ label: "DM", alert: false }] : []),
+    ...(isYes("has") ? [{ label: "HAS", alert: false }] : []),
+    ...(isYes("intolerancia_alimentar")
+      ? [
+          {
+            label: `Intolerância${cond["intolerancia_qual"] ? `: ${String(cond["intolerancia_qual"])}` : ""}`,
+            alert: false,
+          },
+        ]
+      : []),
+    ...(isYes("protese_dentaria") ? [{ label: "Prótese dentária", alert: false }] : []),
+    ...(isYes("dificuldade_alimentos_rigidos")
+      ? [{ label: "Dificuldade c/ alimentos rígidos", alert: true }]
+      : []),
+    ...(typeof cond["funcao_intestinal"] === "string" && cond["funcao_intestinal"]
+      ? [{ label: `Intestino: ${String(cond["funcao_intestinal"])}`, alert: false }]
+      : []),
+    ...(cond["aacoc"] === false ? [{ label: "Não AACOC", alert: true }] : []),
+  ];
+
+
   return (
     <AppShell
       title={patient.full_name}
@@ -144,6 +172,62 @@ function PacientePage() {
         ) : undefined
       }
     >
+      {/* Resumo rápido — visão simples ao abrir o paciente pelo leito */}
+      <Card className="mb-6">
+        <CardContent className="p-4 sm:p-5">
+          {lastScreening ? (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Última triagem · {formatDateTime(lastScreening.screened_at)}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <QuickStat
+                  label="Peso"
+                  value={formatNumber(lastScreening.weight_kg, " kg")}
+                  note={lastScreening.weight_source === "estimado" ? "estimado" : "relatado"}
+                />
+                <QuickStat
+                  label="Altura"
+                  value={formatNumber(lastScreening.height_cm, " cm")}
+                  note={lastScreening.height_source === "estimado" ? "estimada" : "relatada"}
+                />
+                <QuickStat
+                  label="IMC"
+                  value={formatNumber(lastScreening.bmi, "")}
+                  note={
+                    lastScreening.bmi !== null && lastScreening.bmi < 20.5
+                      ? "abaixo de 20,5"
+                      : "kg/m²"
+                  }
+                  alert={lastScreening.bmi !== null && lastScreening.bmi < 20.5}
+                />
+                <QuickStat
+                  label="CB"
+                  value={formatNumber(lastScreening.arm_circumference_cm, " cm")}
+                  note="circunf. braço"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {quickFlags.map((flag) => (
+                  <Badge key={flag.label} variant={flag.alert ? "destructive" : "secondary"}>
+                    {flag.label}
+                  </Badge>
+                ))}
+                {quickFlags.length === 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    Sem alterações relevantes registradas.
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma triagem registrada ainda para este paciente.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="resumo">
         <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
@@ -153,6 +237,7 @@ function PacientePage() {
           <TabsTrigger value="triagens">Triagens</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
@@ -525,6 +610,30 @@ function Measure({
           <SourceBadge source={source ?? null} method={method ?? null} />
         </div>
       )}
+    </div>
+  );
+}
+
+function QuickStat({
+  label,
+  value,
+  note,
+  alert,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  alert?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl px-3 py-2.5 ${alert ? "bg-destructive/10" : "bg-surface"}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className={`mt-0.5 truncate text-lg font-bold ${alert ? "text-destructive" : ""}`}>
+        {value}
+      </p>
+      {note && <p className="truncate text-[11px] text-muted-foreground">{note}</p>}
     </div>
   );
 }
