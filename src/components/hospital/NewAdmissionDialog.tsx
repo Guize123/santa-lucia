@@ -218,12 +218,16 @@ export function NewAdmissionDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="np-birth">Data de nascimento</Label>
+                  <Label htmlFor="np-age">Idade (anos)</Label>
                   <Input
-                    id="np-birth"
-                    type="date"
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
+                    id="np-age"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={120}
+                    placeholder="Ex.: 72"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
                   />
                 </div>
               </div>
