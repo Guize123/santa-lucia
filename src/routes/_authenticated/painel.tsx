@@ -1,17 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { BedDouble, ClipboardList, TriangleAlert } from "lucide-react";
+import { BedDouble, ClipboardList, Printer, Tag, TriangleAlert } from "lucide-react";
 
 import { AppShell } from "@/components/hospital/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CARE_TYPES, formatDateTime } from "@/lib/domain";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CARE_TYPES, formatDate, formatDateTime } from "@/lib/domain";
 import {
   buildOverview,
   fetchAdmissions,
   fetchBeds,
+  fetchPatients,
+  fetchRooms,
   fetchScreenings,
   fetchWards,
 } from "@/lib/queries";
