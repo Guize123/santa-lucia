@@ -613,3 +613,27 @@ function Measure({
     </div>
   );
 }
+
+function QuickStat({
+  label,
+  value,
+  note,
+  alert,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  alert?: boolean;
+}) {
+  return (
+    <div className={`rounded-xl px-3 py-2.5 ${alert ? "bg-destructive/10" : "bg-surface"}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className={`mt-0.5 truncate text-lg font-bold ${alert ? "text-destructive" : ""}`}>
+        {value}
+      </p>
+      {note && <p className="truncate text-[11px] text-muted-foreground">{note}</p>}
+    </div>
+  );
+}
