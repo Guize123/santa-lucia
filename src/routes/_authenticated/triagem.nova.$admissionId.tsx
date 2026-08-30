@@ -39,13 +39,17 @@ import {
   type Sex,
 } from "@/lib/anthropometricCalculations";
 import {
+  NAN_LEVELS,
   RACE_LABELS,
   SOURCE_LABELS,
   ageFromBirthDate,
   careTypeLabel,
   formatDate,
   formatNumber,
+  nanLabel,
+  nextScreeningDate,
   type MeasureSource,
+  type NanLevel,
 } from "@/lib/domain";
 import { fetchAdmissions, fetchBeds, fetchPatient, fetchWard } from "@/lib/queries";
 
