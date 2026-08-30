@@ -112,6 +112,34 @@ function PacientePage() {
 
   const age = ageFromBirthDate(patient.birth_date);
 
+  const cond = (lastScreening?.conditions ?? {}) as Record<string, unknown>;
+  const isYes = (key: string) => cond[key] === true;
+  const quickFlags: { label: string; alert: boolean }[] = [
+    ...(isYes("imc_menor_20_5") ? [{ label: "IMC < 20,5", alert: true }] : []),
+    ...(isYes("perda_de_peso") ? [{ label: "Perda de peso", alert: true }] : []),
+    ...(isYes("reducao_fome") ? [{ label: "Redução da fome", alert: true }] : []),
+    ...(isYes("edema") ? [{ label: "Edema", alert: true }] : []),
+    ...(isYes("dm") ? [{ label: "DM", alert: false }] : []),
+    ...(isYes("has") ? [{ label: "HAS", alert: false }] : []),
+    ...(isYes("intolerancia_alimentar")
+      ? [
+          {
+            label: `Intolerância${cond["intolerancia_qual"] ? `: ${String(cond["intolerancia_qual"])}` : ""}`,
+            alert: false,
+          },
+        ]
+      : []),
+    ...(isYes("protese_dentaria") ? [{ label: "Prótese dentária", alert: false }] : []),
+    ...(isYes("dificuldade_alimentos_rigidos")
+      ? [{ label: "Dificuldade c/ alimentos rígidos", alert: true }]
+      : []),
+    ...(typeof cond["funcao_intestinal"] === "string" && cond["funcao_intestinal"]
+      ? [{ label: `Intestino: ${String(cond["funcao_intestinal"])}`, alert: false }]
+      : []),
+    ...(cond["aacoc"] === false ? [{ label: "Não AACOC", alert: true }] : []),
+  ];
+
+
   return (
     <AppShell
       title={patient.full_name}
