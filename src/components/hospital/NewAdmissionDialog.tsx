@@ -30,6 +30,7 @@ import { fetchAdmissions, fetchPatients } from "@/lib/queries";
 const newPatientSchema = z.object({
   full_name: z.string().trim().min(3, "Informe o nome completo").max(120),
   medical_record: z.string().trim().max(40).optional(),
+  mother_name: z.string().trim().max(120).optional(),
   age: z
     .string()
     .trim()
