@@ -144,6 +144,62 @@ function PacientePage() {
         ) : undefined
       }
     >
+      {/* Resumo rápido — visão simples ao abrir o paciente pelo leito */}
+      <Card className="mb-6">
+        <CardContent className="p-4 sm:p-5">
+          {lastScreening ? (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Última triagem · {formatDateTime(lastScreening.screened_at)}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <QuickStat
+                  label="Peso"
+                  value={formatNumber(lastScreening.weight_kg, " kg")}
+                  note={lastScreening.weight_source === "estimado" ? "estimado" : "relatado"}
+                />
+                <QuickStat
+                  label="Altura"
+                  value={formatNumber(lastScreening.height_cm, " cm")}
+                  note={lastScreening.height_source === "estimado" ? "estimada" : "relatada"}
+                />
+                <QuickStat
+                  label="IMC"
+                  value={formatNumber(lastScreening.bmi, "")}
+                  note={
+                    lastScreening.bmi !== null && lastScreening.bmi < 20.5
+                      ? "abaixo de 20,5"
+                      : "kg/m²"
+                  }
+                  alert={lastScreening.bmi !== null && lastScreening.bmi < 20.5}
+                />
+                <QuickStat
+                  label="CB"
+                  value={formatNumber(lastScreening.arm_circumference_cm, " cm")}
+                  note="circunf. braço"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {quickFlags.map((flag) => (
+                  <Badge key={flag.label} variant={flag.alert ? "destructive" : "secondary"}>
+                    {flag.label}
+                  </Badge>
+                ))}
+                {quickFlags.length === 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    Sem alterações relevantes registradas.
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma triagem registrada ainda para este paciente.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="resumo">
         <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
@@ -153,6 +209,7 @@ function PacientePage() {
           <TabsTrigger value="triagens">Triagens</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
