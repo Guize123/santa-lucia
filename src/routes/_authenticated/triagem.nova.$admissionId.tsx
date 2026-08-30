@@ -767,7 +767,7 @@ function YesNoField({
   value: YesNo;
   onChange: (value: YesNo) => void;
   disabled?: boolean;
-  hint?: string;
+  hint?: string | undefined;
 }) {
   return (
     <div className="space-y-2">
