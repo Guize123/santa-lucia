@@ -30,10 +30,23 @@ import { fetchAdmissions, fetchPatients } from "@/lib/queries";
 const newPatientSchema = z.object({
   full_name: z.string().trim().min(3, "Informe o nome completo").max(120),
   medical_record: z.string().trim().max(40).optional(),
-  birth_date: z.string().trim().max(10).optional(),
+  age: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || (Number(v) >= 0 && Number(v) <= 120), "Idade inválida")
+    .optional(),
   sex: z.enum(["F", "M"]),
   race: z.custom<Race>(),
 });
+
+/** Converte a idade informada em uma data de nascimento aproximada (mesmo dia/mês de hoje). */
+function birthDateFromAge(age: string): string | null {
+  const years = Number(age);
+  if (!age || Number.isNaN(years)) return null;
+  const now = new Date();
+  const d = new Date(now.getFullYear() - years, now.getMonth(), now.getDate());
+  return d.toISOString().slice(0, 10);
+}
 
 export function NewAdmissionDialog({
   bed,
@@ -50,7 +63,7 @@ export function NewAdmissionDialog({
   const [patientId, setPatientId] = useState("");
   const [fullName, setFullName] = useState("");
   const [record, setRecord] = useState("");
-  const [birthDate, setBirthDate] = useState("");
+  const [age, setAge] = useState("");
   const [sex, setSex] = useState<"F" | "M">("F");
   const [race, setRace] = useState<Race>("nao_informado");
   const [diagnosis, setDiagnosis] = useState("");
@@ -72,7 +85,7 @@ export function NewAdmissionDialog({
         const parsed = newPatientSchema.parse({
           full_name: fullName,
           medical_record: record,
-          birth_date: birthDate,
+          age,
           sex,
           race,
         });
@@ -81,7 +94,7 @@ export function NewAdmissionDialog({
           .insert({
             full_name: parsed.full_name,
             medical_record: parsed.medical_record || null,
-            birth_date: parsed.birth_date || null,
+            birth_date: birthDateFromAge(parsed.age ?? ""),
             sex: parsed.sex,
             race: parsed.race,
           })
@@ -121,7 +134,7 @@ export function NewAdmissionDialog({
       setPatientId("");
       setFullName("");
       setRecord("");
-      setBirthDate("");
+      setAge("");
       setDiagnosis("");
       void navigate({
         to: "/triagem/nova/$admissionId",
@@ -205,12 +218,16 @@ export function NewAdmissionDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="np-birth">Data de nascimento</Label>
+                  <Label htmlFor="np-age">Idade (anos)</Label>
                   <Input
-                    id="np-birth"
-                    type="date"
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
+                    id="np-age"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={120}
+                    placeholder="Ex.: 72"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
                   />
                 </div>
               </div>
