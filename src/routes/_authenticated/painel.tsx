@@ -43,6 +43,8 @@ export const Route = createFileRoute("/_authenticated/painel")({
 function Painel() {
   const { data: wards = [], isPending } = useQuery({ queryKey: ["wards"], queryFn: fetchWards });
   const { data: beds = [] } = useQuery({ queryKey: ["beds"], queryFn: () => fetchBeds() });
+  const { data: rooms = [] } = useQuery({ queryKey: ["rooms"], queryFn: () => fetchRooms() });
+  const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
   const { data: admissions = [] } = useQuery({
     queryKey: ["admissions", "ativa"],
     queryFn: () => fetchAdmissions({ status: "ativa" }),
@@ -65,6 +67,24 @@ function Painel() {
         </Button>
       }
     >
+      <Tabs defaultValue="visao-geral">
+        <TabsList className="mb-5">
+          <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
+          <TabsTrigger value="etiquetas">
+            <Tag className="size-4" aria-hidden="true" />
+            Etiquetas
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="etiquetas" className="mt-0">
+          <EtiquetasTab
+            wards={wards}
+            beds={beds}
+            rooms={rooms}
+            patients={patients}
+            admissions={admissions}
+          />
+        </TabsContent>
+        <TabsContent value="visao-geral" className="mt-0">
       <div className="grid gap-5 lg:grid-cols-3">
         {isPending
           ? CARE_TYPES.map((type) => <Skeleton key={type.value} className="h-56 rounded-2xl" />)
