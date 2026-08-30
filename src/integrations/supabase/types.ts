@@ -20,6 +20,7 @@ export type Database = {
           bed_id: string
           care_type: Database["public"]["Enums"]["care_type"]
           created_at: string
+          diet_note: string | null
           discharged_at: string | null
           id: string
           main_diagnosis: string | null
@@ -32,6 +33,7 @@ export type Database = {
           bed_id: string
           care_type: Database["public"]["Enums"]["care_type"]
           created_at?: string
+          diet_note?: string | null
           discharged_at?: string | null
           id?: string
           main_diagnosis?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           bed_id?: string
           care_type?: Database["public"]["Enums"]["care_type"]
           created_at?: string
+          diet_note?: string | null
           discharged_at?: string | null
           id?: string
           main_diagnosis?: string | null
@@ -180,6 +183,7 @@ export type Database = {
           full_name: string
           id: string
           medical_record: string | null
+          mother_name: string | null
           notes: string | null
           race: Database["public"]["Enums"]["race_type"]
           sex: string | null
@@ -191,6 +195,7 @@ export type Database = {
           full_name: string
           id?: string
           medical_record?: string | null
+          mother_name?: string | null
           notes?: string | null
           race?: Database["public"]["Enums"]["race_type"]
           sex?: string | null
@@ -202,6 +207,7 @@ export type Database = {
           full_name?: string
           id?: string
           medical_record?: string | null
+          mother_name?: string | null
           notes?: string | null
           race?: Database["public"]["Enums"]["race_type"]
           sex?: string | null
@@ -283,6 +289,8 @@ export type Database = {
           intake_acceptance: string | null
           is_reassessment: boolean
           knee_height_cm: number | null
+          nan_level: string | null
+          next_screening_at: string | null
           patient_id: string
           professional_id: string | null
           professional_name: string
@@ -316,6 +324,8 @@ export type Database = {
           intake_acceptance?: string | null
           is_reassessment?: boolean
           knee_height_cm?: number | null
+          nan_level?: string | null
+          next_screening_at?: string | null
           patient_id: string
           professional_id?: string | null
           professional_name?: string
@@ -349,6 +359,8 @@ export type Database = {
           intake_acceptance?: string | null
           is_reassessment?: boolean
           knee_height_cm?: number | null
+          nan_level?: string | null
+          next_screening_at?: string | null
           patient_id?: string
           professional_id?: string | null
           professional_name?: string
