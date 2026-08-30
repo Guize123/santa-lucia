@@ -340,23 +340,38 @@ function PacientePage() {
                 <p className="text-sm text-muted-foreground">Nenhuma triagem registrada.</p>
               )}
               {screenings.map((s) => {
-                const present = CLINICAL_CONDITIONS.filter((c) => s.conditions?.[c.key]);
+                const answers = SCREENING_QUESTIONS.map((q) => ({
+                  ...q,
+                  text: formatScreeningAnswer(s.conditions?.[q.key]),
+                })).filter((q) => q.text !== null);
+                const legacy = CLINICAL_CONDITIONS.filter(
+                  (c) =>
+                    s.conditions?.[c.key] === true &&
+                    !SCREENING_QUESTIONS.some((q) => q.key === c.key),
+                );
                 return (
                   <div key={s.id} className="rounded-xl border border-border p-4">
                     <p className="font-semibold">{formatDateTime(s.screened_at)}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {present.length === 0 ? (
-                        <span className="text-sm text-muted-foreground">
-                          Nenhuma condição assinalada nesta triagem.
-                        </span>
-                      ) : (
-                        present.map((c) => (
+                    {answers.length === 0 && legacy.length === 0 ? (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Nenhuma condição assinalada nesta triagem.
+                      </p>
+                    ) : (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {answers.map((q) => (
+                          <Info key={q.key} label={q.label} value={q.text ?? "—"} />
+                        ))}
+                      </div>
+                    )}
+                    {legacy.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {legacy.map((c) => (
                           <Badge key={c.key} variant="secondary">
                             {c.label}
                           </Badge>
-                        ))
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                     {s.clinical_notes && (
                       <p className="mt-3 text-sm text-muted-foreground">{s.clinical_notes}</p>
                     )}
