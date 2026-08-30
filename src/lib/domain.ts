@@ -36,6 +36,7 @@ export interface Patient {
   sex: string | null;
   race: Race;
   medical_record: string | null;
+  mother_name: string | null;
   notes: string | null;
 }
 
@@ -48,7 +49,29 @@ export interface Admission {
   admitted_at: string;
   discharged_at: string | null;
   main_diagnosis: string | null;
+  diet_note: string | null;
   notes: string | null;
+}
+
+/** Nível de Avaliação Nutricional (NAN) definido na triagem. */
+export type NanLevel = "primario" | "secundario";
+
+export const NAN_LEVELS: { value: NanLevel; label: string; days: number }[] = [
+  { value: "primario", label: "Primário", days: 5 },
+  { value: "secundario", label: "Secundário", days: 4 },
+];
+
+export const nanDays = (level: NanLevel): number =>
+  NAN_LEVELS.find((l) => l.value === level)?.days ?? 5;
+
+export const nanLabel = (level: string | null | undefined): string =>
+  NAN_LEVELS.find((l) => l.value === level)?.label ?? "—";
+
+/** Data de retorno da triagem: primário = 5 dias, secundário = 4 dias. */
+export function nextScreeningDate(level: NanLevel, from: Date = new Date()): Date {
+  const date = new Date(from);
+  date.setDate(date.getDate() + nanDays(level));
+  return date;
 }
 
 export interface Screening {
@@ -58,6 +81,8 @@ export interface Screening {
   screened_at: string;
   professional_name: string;
   is_reassessment: boolean;
+  nan_level: NanLevel | null;
+  next_screening_at: string | null;
   weight_kg: number | null;
   weight_source: MeasureSource | null;
   weight_method: string | null;

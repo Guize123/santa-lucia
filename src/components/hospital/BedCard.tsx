@@ -1,9 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { BedDouble, CircleCheck, CircleSlash, UserPlus } from "lucide-react";
+import { useState } from "react";
+import { BedDouble, CircleCheck, CircleSlash, UserPlus, Utensils } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DietDialog } from "@/components/hospital/DietDialog";
 import {
   daysSince,
   formatDate,
@@ -21,6 +23,7 @@ interface BedCardProps {
 }
 
 export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: BedCardProps) {
+  const [dietOpen, setDietOpen] = useState(false);
   const inactive = !bed.is_active;
 
   return (
@@ -91,6 +94,12 @@ export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: Bed
                 ? `Triado em ${formatDate(lastScreening)}`
                 : "Sem triagem registrada"}
             </Badge>
+            <p className="mt-2 rounded-lg bg-muted px-3 py-2 text-xs">
+              <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+                Dieta:{" "}
+              </span>
+              <span className="font-medium">{admission.diet_note || "não informada"}</span>
+            </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <Button asChild size="sm">
                 <Link to="/paciente/$patientId" params={{ patientId: patient.id }}>
@@ -102,7 +111,21 @@ export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: Bed
                   Nova triagem
                 </Link>
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2 sm:col-span-2"
+                onClick={() => setDietOpen(true)}
+              >
+                <Utensils className="size-4" aria-hidden="true" />
+                {admission.diet_note ? "Editar dieta" : "Informar dieta"}
+              </Button>
             </div>
+            <DietDialog
+              admission={dietOpen ? admission : null}
+              patientName={patient.full_name}
+              onOpenChange={setDietOpen}
+            />
           </div>
         ) : (
           <div className="mt-4">

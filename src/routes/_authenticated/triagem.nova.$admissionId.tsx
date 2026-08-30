@@ -39,13 +39,17 @@ import {
   type Sex,
 } from "@/lib/anthropometricCalculations";
 import {
+  NAN_LEVELS,
   RACE_LABELS,
   SOURCE_LABELS,
   ageFromBirthDate,
   careTypeLabel,
   formatDate,
   formatNumber,
+  nanLabel,
+  nextScreeningDate,
   type MeasureSource,
+  type NanLevel,
 } from "@/lib/domain";
 import { fetchAdmissions, fetchBeds, fetchPatient, fetchWard } from "@/lib/queries";
 
@@ -104,6 +108,7 @@ function NovaTriagemPage() {
 
   const [professionalName, setProfessionalName] = useState("");
   const [isReassessment, setIsReassessment] = useState(false);
+  const [nanLevel, setNanLevel] = useState<NanLevel | "">("");
 
   // Peso e altura
   const [knowsWeight, setKnowsWeight] = useState<YesNo>("sim");
@@ -137,6 +142,8 @@ function NovaTriagemPage() {
   const age = ageFromBirthDate(patient?.birth_date ?? null);
   const explicitProtocol = protocol || undefined;
   const needsEstimate = knowsWeight === "nao" || knowsHeight === "nao";
+  /** Primário = retorno em 5 dias; secundário = retorno em 4 dias. */
+  const nextScreening = nanLevel ? nextScreeningDate(nanLevel) : null;
 
   /** Prótese dentária implica dentição incompleta. */
   const handleDenture = (value: YesNo) => {
@@ -257,6 +264,8 @@ function NovaTriagemPage() {
           patient_id: patient.id,
           professional_name: professionalName.trim().slice(0, 120),
           is_reassessment: isReassessment,
+          nan_level: nanLevel || null,
+          next_screening_at: nextScreening ? nextScreening.toISOString() : null,
           weight_kg: weightResult?.value ?? null,
           weight_source: weightResult?.source ?? null,
           weight_method: weightResult?.method ?? null,
@@ -388,6 +397,29 @@ function NovaTriagemPage() {
                   onCheckedChange={setIsReassessment}
                 />
                 <Label htmlFor="reassess">Esta triagem é uma reavaliação</Label>
+              </div>
+              <div className="space-y-2">
+                <Label>Nível de Avaliação Nutricional (NAN)</Label>
+                <Select
+                  value={nanLevel}
+                  onValueChange={(value) => setNanLevel(value as NanLevel)}
+                >
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Selecione o nível" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NAN_LEVELS.map((level) => (
+                      <SelectItem key={level.value} value={level.value}>
+                        {level.label} · retorno em {level.days} dias
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {nextScreening && (
+                  <p className="text-sm font-medium text-primary">
+                    Retorno da triagem: {formatDate(nextScreening.toISOString())}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -740,6 +772,12 @@ function NovaTriagemPage() {
             <p>Internação: {formatDate(admission.admitted_at)}</p>
             <p>Profissional: {professionalName || "não informado"}</p>
             <p>Tipo: {isReassessment ? "Reavaliação" : "Triagem inicial"}</p>
+            <p>
+              NAN: {nanLevel ? nanLabel(nanLevel) : "não classificado"}
+              {nextScreening
+                ? ` · retorno em ${formatDate(nextScreening.toISOString())}`
+                : ""}
+            </p>
             <Separator />
             <ResultLine
               label="Peso"

@@ -246,9 +246,10 @@ function EtiquetasTab({ wards, beds, rooms, patients, admissions }: EtiquetasTab
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <p className="text-sm text-muted-foreground">
-          Etiquetas de dieta dos pacientes internados, agrupadas por tipo de atendimento.
+          Etiquetas de dieta (7,5 cm × 3 cm) dos pacientes internados, agrupadas por tipo de
+          atendimento.
         </p>
         <Button variant="outline" onClick={() => window.print()}>
           <Printer className="size-4" aria-hidden="true" />
@@ -256,94 +257,80 @@ function EtiquetasTab({ wards, beds, rooms, patients, admissions }: EtiquetasTab
         </Button>
       </div>
 
-      {CARE_TYPES.map((type) => {
-        const group = etiquetas.filter((e) => e.admission.care_type === type.value);
-        return (
-          <section key={type.value} aria-labelledby={`etiquetas-${type.value}`}>
-            <div className="flex items-center gap-3">
-              <h2
-                id={`etiquetas-${type.value}`}
-                className="font-display text-xl font-bold text-foreground"
-              >
-                {type.label}
-              </h2>
-              <Badge variant="secondary">{group.length} etiqueta(s)</Badge>
-            </div>
-
-            {group.length === 0 ? (
-              <Card className="mt-4">
-                <CardContent className="p-5 text-sm text-muted-foreground">
-                  Nenhum paciente internado neste atendimento.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {group.map(({ admission, patient, bed, ward, room }) => (
-                  <article
-                    key={admission.id}
-                    className="overflow-hidden rounded-xl border-2 border-dashed border-border bg-card shadow-sm"
-                  >
-                    <div className="h-1.5 bg-primary" aria-hidden="true" />
-                    <div className="p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                            {ward?.name ?? "—"}
-                            {room ? ` · ${room.name}` : ""}
-                          </p>
-                          <h3 className="mt-1 truncate font-display text-lg font-bold leading-tight">
-                            {patient?.full_name ?? "Paciente"}
-                          </h3>
-                        </div>
-                        <Badge variant="outline" className="shrink-0 font-bold">
-                          {bed?.label ?? "—"}
-                        </Badge>
-                      </div>
-
-                      <dl className="mt-4 space-y-1.5 text-xs text-muted-foreground">
-                        <div className="flex justify-between gap-2">
-                          <dt>Internação</dt>
-                          <dd className="font-medium text-foreground">
-                            {formatDate(admission.admitted_at)}
-                          </dd>
-                        </div>
-                        {admission.main_diagnosis && (
-                          <div className="flex justify-between gap-2">
-                            <dt>Diagnóstico</dt>
-                            <dd className="text-right font-medium text-foreground">
-                              {admission.main_diagnosis}
-                            </dd>
-                          </div>
-                        )}
-                      </dl>
-
-                      <div className="mt-4 rounded-lg bg-brand/10 px-4 py-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-brand">
-                          Observação da dieta
-                        </p>
-                        <p className="mt-0.5 text-sm font-bold text-foreground">
-                          {admission.notes || "Dieta padrão, sem observações"}
-                        </p>
-                      </div>
-
-                      <div className="mt-4 border-t border-dashed border-border pt-3">
-                        <Link
-                          to="/paciente/$patientId"
-                          params={{ patientId: admission.patient_id }}
-                          className="text-xs font-semibold text-primary hover:underline"
-                        >
-                          Abrir ficha do paciente
-                        </Link>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+      <div className="etiquetas-print space-y-8">
+        {CARE_TYPES.map((type) => {
+          const group = etiquetas.filter((e) => e.admission.care_type === type.value);
+          return (
+            <section key={type.value} aria-labelledby={`etiquetas-${type.value}`}>
+              <div className="flex items-center gap-3 print:hidden">
+                <h2
+                  id={`etiquetas-${type.value}`}
+                  className="font-display text-xl font-bold text-foreground"
+                >
+                  {type.label}
+                </h2>
+                <Badge variant="secondary">{group.length} etiqueta(s)</Badge>
               </div>
-            )}
-          </section>
-        );
-      })}
+
+              {group.length === 0 ? (
+                <Card className="mt-4 print:hidden">
+                  <CardContent className="p-5 text-sm text-muted-foreground">
+                    Nenhum paciente internado neste atendimento.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="mt-4 flex flex-wrap gap-4">
+                  {group.map(({ admission, patient, bed }) => (
+                    <Etiqueta
+                      key={admission.id}
+                      patient={patient}
+                      bedLabel={bed?.label ?? ""}
+                      diet={admission.diet_note ?? admission.notes ?? ""}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+interface EtiquetaProps {
+  patient: import("@/lib/domain").Patient | undefined;
+  bedLabel: string;
+  diet: string;
+}
+
+/** Etiqueta física de 7,5 cm × 3 cm, replicando o modelo impresso do hospital. */
+function Etiqueta({ patient, bedLabel, diet }: EtiquetaProps) {
+  const sexo = patient?.sex === "M" ? "Masc" : patient?.sex === "F" ? "Fem" : "";
+  const nascimento = patient?.birth_date ? formatDate(patient.birth_date) : "";
+
+  return (
+    <article
+      className="etiqueta flex flex-col justify-between bg-white p-[2mm] text-black"
+      style={{ width: "75mm", height: "30mm", fontFamily: "Arial, Helvetica, sans-serif" }}
+    >
+      <div className="flex items-start justify-between gap-2 leading-tight">
+        <p className="truncate text-[10.5px] font-bold uppercase tracking-tight">
+          {patient?.full_name ?? ""}
+        </p>
+        <p className="shrink-0 text-[10.5px] font-bold">Lt:{bedLabel}</p>
+      </div>
+      <p className="truncate text-[10px] leading-tight">
+        {sexo} {nascimento}PRONT PRONTO&nbsp;&nbsp;&nbsp;{patient?.medical_record ?? ""}
+      </p>
+      <p className="truncate text-[10px] leading-tight">Mãe: {patient?.mother_name ?? ""}</p>
+      <p className="flex items-end gap-1 text-[10px] leading-tight">
+        <span>Dieta:</span>
+        <span className="min-w-0 flex-1 truncate border-b border-black pb-[1px] font-semibold">
+          {diet}
+        </span>
+      </p>
+    </article>
   );
 }
 

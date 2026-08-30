@@ -30,6 +30,7 @@ import { fetchAdmissions, fetchPatients } from "@/lib/queries";
 const newPatientSchema = z.object({
   full_name: z.string().trim().min(3, "Informe o nome completo").max(120),
   medical_record: z.string().trim().max(40).optional(),
+  mother_name: z.string().trim().max(120).optional(),
   age: z
     .string()
     .trim()
@@ -63,10 +64,13 @@ export function NewAdmissionDialog({
   const [patientId, setPatientId] = useState("");
   const [fullName, setFullName] = useState("");
   const [record, setRecord] = useState("");
+  const [motherName, setMotherName] = useState("");
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<"F" | "M">("F");
   const [race, setRace] = useState<Race>("nao_informado");
   const [diagnosis, setDiagnosis] = useState("");
+  const [diet, setDiet] = useState("");
+
 
   const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
   const { data: activeAdmissions = [] } = useQuery({
@@ -85,6 +89,7 @@ export function NewAdmissionDialog({
         const parsed = newPatientSchema.parse({
           full_name: fullName,
           medical_record: record,
+          mother_name: motherName,
           age,
           sex,
           race,
@@ -94,6 +99,7 @@ export function NewAdmissionDialog({
           .insert({
             full_name: parsed.full_name,
             medical_record: parsed.medical_record || null,
+            mother_name: parsed.mother_name || null,
             birth_date: birthDateFromAge(parsed.age ?? ""),
             sex: parsed.sex,
             race: parsed.race,
@@ -113,6 +119,7 @@ export function NewAdmissionDialog({
           bed_id: bed.id,
           care_type: careType,
           main_diagnosis: diagnosis.trim().slice(0, 300) || null,
+          diet_note: diet.trim().slice(0, 200) || null,
         })
         .select("id")
         .single();
@@ -134,8 +141,10 @@ export function NewAdmissionDialog({
       setPatientId("");
       setFullName("");
       setRecord("");
+      setMotherName("");
       setAge("");
       setDiagnosis("");
+      setDiet("");
       void navigate({
         to: "/triagem/nova/$admissionId",
         params: { admissionId },
@@ -207,6 +216,15 @@ export function NewAdmissionDialog({
                   maxLength={120}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="np-mother">Nome da mãe</Label>
+                <Input
+                  id="np-mother"
+                  value={motherName}
+                  onChange={(e) => setMotherName(e.target.value)}
+                  maxLength={120}
+                />
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="np-record">Prontuário</Label>
@@ -270,6 +288,17 @@ export function NewAdmissionDialog({
               value={diagnosis}
               onChange={(e) => setDiagnosis(e.target.value)}
               maxLength={300}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="np-diet">Dieta / solicitações (etiqueta)</Label>
+            <Textarea
+              id="np-diet"
+              value={diet}
+              onChange={(e) => setDiet(e.target.value)}
+              maxLength={200}
+              placeholder="Ex.: sem leite, mamão, sem sopa"
             />
           </div>
         </div>
