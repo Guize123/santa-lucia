@@ -89,6 +89,7 @@ export function NewAdmissionDialog({
         const parsed = newPatientSchema.parse({
           full_name: fullName,
           medical_record: record,
+          mother_name: motherName,
           age,
           sex,
           race,
@@ -98,6 +99,7 @@ export function NewAdmissionDialog({
           .insert({
             full_name: parsed.full_name,
             medical_record: parsed.medical_record || null,
+            mother_name: parsed.mother_name || null,
             birth_date: birthDateFromAge(parsed.age ?? ""),
             sex: parsed.sex,
             race: parsed.race,
@@ -117,6 +119,7 @@ export function NewAdmissionDialog({
           bed_id: bed.id,
           care_type: careType,
           main_diagnosis: diagnosis.trim().slice(0, 300) || null,
+          diet_note: diet.trim().slice(0, 200) || null,
         })
         .select("id")
         .single();
@@ -138,8 +141,10 @@ export function NewAdmissionDialog({
       setPatientId("");
       setFullName("");
       setRecord("");
+      setMotherName("");
       setAge("");
       setDiagnosis("");
+      setDiet("");
       void navigate({
         to: "/triagem/nova/$admissionId",
         params: { admissionId },
