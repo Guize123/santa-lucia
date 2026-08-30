@@ -72,7 +72,7 @@ export interface Screening {
   calf_circumference_cm: number | null;
   knee_height_cm: number | null;
   subscapular_skinfold_mm: number | null;
-  conditions: Record<string, boolean> | null;
+  conditions: Record<string, boolean | string | null> | null;
   appetite: string | null;
   intake_acceptance: string | null;
   chewing: string | null;
