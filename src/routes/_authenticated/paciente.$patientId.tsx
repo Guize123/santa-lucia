@@ -10,6 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CLINICAL_CONDITIONS,
+  SCREENING_QUESTIONS,
+  formatScreeningAnswer,
   RACE_LABELS,
   SOURCE_LABELS,
   ageFromBirthDate,
