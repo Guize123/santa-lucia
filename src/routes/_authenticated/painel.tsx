@@ -130,7 +130,7 @@ function Painel() {
                         </div>
                       </dl>
 
-                      <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
                         <span>
                           <strong className="text-foreground">{data?.occupied ?? 0}</strong> ocupado(s)
                         </span>
@@ -145,7 +145,7 @@ function Painel() {
                           <strong className="text-foreground">{typeWards.length}</strong> ala(s)
                           ativa(s)
                         </span>
-                      </p>
+                      </div>
                     </CardContent>
                   </Card>
                 </Link>

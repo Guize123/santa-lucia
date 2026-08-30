@@ -204,7 +204,7 @@ function AlaPage() {
                       </div>
                     </dl>
 
-                    <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
                       <span>
                         <strong className="text-primary">{roomOccupied}</strong> ocupado(s)
                       </span>
@@ -219,7 +219,7 @@ function AlaPage() {
                           {pendingScreening} triagem(ns) pendente(s)
                         </Badge>
                       )}
-                    </p>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>
