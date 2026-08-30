@@ -827,7 +827,7 @@ function YesNoField({
             variant={value === option ? "default" : "outline"}
             disabled={disabled}
             aria-pressed={value === option}
-            className={cn("min-w-24 flex-1 sm:flex-none")}
+            className={cn("h-12 min-w-24 flex-1 text-base sm:h-10 sm:flex-none sm:text-sm")}
             onClick={() => onChange(value === option ? "" : option)}
           >
             {option === "sim" ? "Sim" : "Não"}
@@ -851,7 +851,12 @@ function Field({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value)} />
+      <Input
+        inputMode="decimal"
+        className="h-12 text-base sm:h-10 sm:text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
