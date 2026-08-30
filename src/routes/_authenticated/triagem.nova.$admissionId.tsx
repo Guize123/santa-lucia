@@ -8,7 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -29,24 +28,22 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import {
   calculateBMI,
   calculateHeightChumlea,
   calculateWeightChumleaArmKnee,
-  calculateWeightChumleaComplete,
-  calculateWeightLossPercentage,
-  requiresExplicitProtocol,
   type ChumleaProtocol,
   type EstimateAudit,
   type Sex,
 } from "@/lib/anthropometricCalculations";
 import {
-  CLINICAL_CONDITIONS,
   RACE_LABELS,
   SOURCE_LABELS,
   ageFromBirthDate,
   careTypeLabel,
+  formatDate,
   formatNumber,
   type MeasureSource,
 } from "@/lib/domain";
@@ -59,7 +56,7 @@ export const Route = createFileRoute("/_authenticated/triagem/nova/$admissionId"
       {
         name: "description",
         content:
-          "Registro de triagem nutricional com antropometria auditada, condições clínicas, alimentação e resumo de confirmação antes de salvar.",
+          "Roteiro de triagem nutricional: peso e altura com origem explícita, IMC automático, comorbidades, dentição, função intestinal, edema e observações.",
       },
       { property: "og:title", content: "Nova triagem nutricional" },
       {
@@ -72,13 +69,15 @@ export const Route = createFileRoute("/_authenticated/triagem/nova/$admissionId"
   component: NovaTriagemPage,
 });
 
-type WeightMode = "aferido" | "relatado" | "chumlea_braco_joelho" | "chumlea_completo" | "sem";
-type HeightMode = "aferido" | "relatado" | "chumlea_joelho" | "sem";
+type YesNo = "" | "sim" | "nao";
 
 const num = (value: string): number => {
   const parsed = Number(value.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : NaN;
 };
+
+const toBool = (value: YesNo): boolean | null =>
+  value === "" ? null : value === "sim";
 
 function NovaTriagemPage() {
   const { admissionId } = Route.useParams();
@@ -106,69 +105,68 @@ function NovaTriagemPage() {
   const [professionalName, setProfessionalName] = useState("");
   const [isReassessment, setIsReassessment] = useState(false);
 
-  const [weightMode, setWeightMode] = useState<WeightMode>("aferido");
-  const [heightMode, setHeightMode] = useState<HeightMode>("aferido");
+  // Peso e altura
+  const [knowsWeight, setKnowsWeight] = useState<YesNo>("sim");
   const [weightInput, setWeightInput] = useState("");
+  const [knowsHeight, setKnowsHeight] = useState<YesNo>("sim");
   const [heightInput, setHeightInput] = useState("");
+  const [protocol, setProtocol] = useState<ChumleaProtocol | "">("");
+  const [arm, setArm] = useState("");
+  const [knee, setKnee] = useState("");
+
+  // Roteiro clínico
+  const [dm, setDm] = useState<YesNo>("");
+  const [has, setHas] = useState<YesNo>("");
+  const [intolerance, setIntolerance] = useState<YesNo>("");
+  const [intoleranceWhich, setIntoleranceWhich] = useState("");
+  const [denture, setDenture] = useState<YesNo>("");
+  const [fullDentition, setFullDentition] = useState<YesNo>("");
+  const [hardFoodDifficulty, setHardFoodDifficulty] = useState<YesNo>("");
+  const [hungerReduction, setHungerReduction] = useState<YesNo>("");
+  const [weightLoss, setWeightLoss] = useState<YesNo>("");
   const [usualWeight, setUsualWeight] = useState("");
   const [lossMonths, setLossMonths] = useState("");
-  const [arm, setArm] = useState("");
-  const [calf, setCalf] = useState("");
-  const [knee, setKnee] = useState("");
-  const [skinfold, setSkinfold] = useState("");
-  const [protocol, setProtocol] = useState<ChumleaProtocol | "">("");
-
-  const [conditions, setConditions] = useState<Record<string, boolean>>({});
-  const [clinicalNotes, setClinicalNotes] = useState("");
-  const [appetite, setAppetite] = useState("");
-  const [intake, setIntake] = useState("");
-  const [chewing, setChewing] = useState("");
-  const [swallowing, setSwallowing] = useState("");
-  const [dietType, setDietType] = useState("");
-  const [feedingRoute, setFeedingRoute] = useState("");
-  const [feedingNotes, setFeedingNotes] = useState("");
+  const [bowel, setBowel] = useState("");
+  const [edema, setEdema] = useState<YesNo>("");
+  const [aacoc, setAacoc] = useState<YesNo>("");
+  const [observation, setObservation] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const sex = (patient?.sex === "M" ? "M" : "F") as Sex;
   const race = patient?.race ?? "nao_informado";
   const age = ageFromBirthDate(patient?.birth_date ?? null);
-  const needsProtocol = requiresExplicitProtocol(race);
   const explicitProtocol = protocol || undefined;
+  const needsEstimate = knowsWeight === "nao" || knowsHeight === "nao";
 
-  /** Peso: aferido/relatado vêm do formulário; estimados usam Chumlea + auditoria. */
+  /** Prótese dentária implica dentição incompleta. */
+  const handleDenture = (value: YesNo) => {
+    setDenture(value);
+    if (value === "sim") setFullDentition("nao");
+    if (value === "nao") setHardFoodDifficulty("");
+  };
+
+  /** Peso relatado quando o paciente sabe; senão Chumlea (AJ + CB) com auditoria. */
   const weightResult = useMemo(() => {
-    if (weightMode === "aferido" || weightMode === "relatado") {
+    if (knowsWeight === "sim") {
       const value = num(weightInput);
       if (!Number.isFinite(value) || value <= 0) return null;
       return {
         value,
-        source: weightMode as MeasureSource,
-        method: weightMode === "aferido" ? "Balança (aferido)" : "Relatado pelo paciente/familiar",
+        source: "relatado" as MeasureSource,
+        method: "Relatado pelo paciente/familiar",
         audit: null as EstimateAudit | null,
         failure: null as string | null,
       };
     }
-    if (weightMode === "sem") return null;
-    const result =
-      weightMode === "chumlea_braco_joelho"
-        ? calculateWeightChumleaArmKnee({
-            sex,
-            race,
-            armCircumferenceCm: num(arm),
-            kneeHeightCm: num(knee),
-            ...(explicitProtocol ? { explicitProtocol } : {}),
-            professionalName,
-          })
-        : calculateWeightChumleaComplete({
-            sex,
-            race,
-            calfCircumferenceCm: num(calf),
-            kneeHeightCm: num(knee),
-            armCircumferenceCm: num(arm),
-            subscapularSkinfoldMm: num(skinfold),
-            ...(explicitProtocol ? { explicitProtocol } : {}),
-            professionalName,
-          });
+    if (knowsWeight !== "nao") return null;
+    const result = calculateWeightChumleaArmKnee({
+      sex,
+      race,
+      armCircumferenceCm: num(arm),
+      kneeHeightCm: num(knee),
+      ...(explicitProtocol ? { explicitProtocol } : {}),
+      professionalName,
+    });
     if (!result.ok) {
       return { value: null, source: null, method: null, audit: null, failure: result.message };
     }
@@ -179,35 +177,21 @@ function NovaTriagemPage() {
       audit: result.audit,
       failure: null,
     };
-  }, [
-    weightMode,
-    weightInput,
-    sex,
-    race,
-    arm,
-    knee,
-    calf,
-    skinfold,
-    explicitProtocol,
-    professionalName,
-  ]);
+  }, [knowsWeight, weightInput, sex, race, arm, knee, explicitProtocol, professionalName]);
 
   const heightResult = useMemo(() => {
-    if (heightMode === "aferido" || heightMode === "relatado") {
+    if (knowsHeight === "sim") {
       const value = num(heightInput);
       if (!Number.isFinite(value) || value <= 0) return null;
       return {
         value,
-        source: heightMode as MeasureSource,
-        method:
-          heightMode === "aferido"
-            ? "Estadiômetro/fita (aferido)"
-            : "Relatado pelo paciente/familiar",
+        source: "relatado" as MeasureSource,
+        method: "Relatada pelo paciente/familiar",
         audit: null as EstimateAudit | null,
         failure: null as string | null,
       };
     }
-    if (heightMode === "sem") return null;
+    if (knowsHeight !== "nao") return null;
     const result = calculateHeightChumlea({
       sex,
       race,
@@ -226,7 +210,7 @@ function NovaTriagemPage() {
       audit: result.audit,
       failure: null,
     };
-  }, [heightMode, heightInput, sex, race, knee, age, explicitProtocol, professionalName]);
+  }, [knowsHeight, heightInput, sex, race, knee, age, explicitProtocol, professionalName]);
 
   const bmiResult = useMemo(() => {
     if (!weightResult?.value || !heightResult?.value) return null;
@@ -234,18 +218,26 @@ function NovaTriagemPage() {
     return result.ok ? result : null;
   }, [weightResult, heightResult, professionalName]);
 
-  const lossResult = useMemo(() => {
-    const usual = num(usualWeight);
-    if (!weightResult?.value || !Number.isFinite(usual) || usual <= 0) return null;
-    const months = num(lossMonths);
-    const result = calculateWeightLossPercentage(
-      usual,
-      weightResult.value,
-      Number.isFinite(months) ? months : undefined,
-      professionalName,
-    );
-    return result.ok ? result : null;
-  }, [usualWeight, weightResult, lossMonths, professionalName]);
+  /** IMC < 20,5 é preenchido automaticamente a partir do IMC calculado. */
+  const bmiUnder205: YesNo = bmiResult ? (bmiResult.value < 20.5 ? "sim" : "nao") : "";
+
+  const protocolPending = needsEstimate && !protocol;
+
+  const conditions: Record<string, boolean | string | null> = {
+    imc_menor_20_5: toBool(bmiUnder205),
+    dm: toBool(dm),
+    has: toBool(has),
+    intolerancia_alimentar: toBool(intolerance),
+    intolerancia_qual: intolerance === "sim" ? intoleranceWhich.trim().slice(0, 200) || null : null,
+    protese_dentaria: toBool(denture),
+    denticao_completa: toBool(fullDentition),
+    dificuldade_alimentos_rigidos: toBool(hardFoodDifficulty),
+    reducao_fome: toBool(hungerReduction),
+    perda_de_peso: toBool(weightLoss),
+    funcao_intestinal: bowel || null,
+    edema: toBool(edema),
+    aacoc: toBool(aacoc),
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -273,33 +265,29 @@ function NovaTriagemPage() {
           height_method: heightResult?.method ?? null,
           bmi: bmiResult?.value ?? null,
           usual_weight_kg: optional(usualWeight),
-          weight_loss_percentage: lossResult?.value ?? null,
           weight_loss_period_months: optional(lossMonths),
           arm_circumference_cm: optional(arm),
-          calf_circumference_cm: optional(calf),
           knee_height_cm: optional(knee),
-          subscapular_skinfold_mm: optional(skinfold),
           conditions,
-          clinical_notes: clinicalNotes.trim().slice(0, 1000) || null,
-          appetite: appetite || null,
-          intake_acceptance: intake || null,
-          chewing: chewing || null,
-          swallowing: swallowing || null,
-          diet_type: dietType.trim().slice(0, 120) || null,
-          feeding_route: feedingRoute || null,
-          feeding_notes: feedingNotes.trim().slice(0, 1000) || null,
+          clinical_notes: observation.trim().slice(0, 1000) || null,
+          appetite: hungerReduction === "sim" ? "Reduzido" : hungerReduction === "nao" ? "Preservado" : null,
+          chewing:
+            denture === "sim"
+              ? hardFoodDifficulty === "sim"
+                ? "Uso de prótese · dificuldade com alimentos rígidos/secos"
+                : "Uso de prótese"
+              : denture === "nao"
+                ? "Dentição completa"
+                : null,
         })
         .select("id")
         .single();
       if (error) throw error;
       const screeningId = (data as { id: string }).id;
 
-      const audits = [
-        weightResult?.audit,
-        heightResult?.audit,
-        bmiResult?.audit,
-        lossResult?.audit,
-      ].filter(Boolean) as EstimateAudit[];
+      const audits = [weightResult?.audit, heightResult?.audit, bmiResult?.audit].filter(
+        Boolean,
+      ) as EstimateAudit[];
 
       if (audits.length > 0) {
         const { error: auditError } = await supabase.from("anthropometric_estimates").insert(
@@ -343,11 +331,6 @@ function NovaTriagemPage() {
     );
   }
 
-  const protocolPending =
-    needsProtocol &&
-    !protocol &&
-    (weightMode.startsWith("chumlea") || heightMode.startsWith("chumlea"));
-
   return (
     <AppShell
       title={`Nova triagem — ${patient.full_name}`}
@@ -372,14 +355,22 @@ function NovaTriagemPage() {
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
+          {/* 1. Identificação */}
           <Card>
             <CardHeader>
-              <CardTitle>Identificação da triagem</CardTitle>
+              <CardTitle>Identificação</CardTitle>
               <CardDescription>
                 Nenhuma classificação automática de risco é aplicada neste MVP.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ReadOnly label="Nome do paciente" value={patient.full_name} />
+                <ReadOnly
+                  label="Data da internação"
+                  value={formatDate(admission.admitted_at)}
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="prof">Profissional responsável</Label>
                 <Input
@@ -401,134 +392,109 @@ function NovaTriagemPage() {
             </CardContent>
           </Card>
 
+          {/* 2. Peso e altura */}
           <Card>
             <CardHeader>
-              <CardTitle>Antropometria</CardTitle>
+              <CardTitle>Peso e altura</CardTitle>
               <CardDescription>
                 A origem de cada medida é sempre registrada. Valores estimados nunca são
                 apresentados como aferidos.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {needsProtocol && (
-                <Alert>
-                  <AlertTitle>Escolha explícita de protocolo necessária</AlertTitle>
-                  <AlertDescription className="space-y-3">
-                    <p>
-                      Para raça/cor <strong>{RACE_LABELS[patient.race]}</strong> não existe equação
-                      de Chumlea validada. Escolha explicitamente o protocolo ou use outro método /
-                      não calcular.
-                    </p>
-                    <Select
-                      value={protocol}
-                      onValueChange={(value) => setProtocol(value as ChumleaProtocol)}
-                    >
-                      <SelectTrigger className="max-w-sm">
-                        <SelectValue placeholder="Nenhum protocolo selecionado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="branca">
-                          Protocolo da equação branca (escolha explícita)
-                        </SelectItem>
-                        <SelectItem value="negra">
-                          Protocolo da equação negra (escolha explícita)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </AlertDescription>
-                </Alert>
-              )}
-
               <div className="space-y-3">
-                <Label>Origem do peso</Label>
-                <Select
-                  value={weightMode}
-                  onValueChange={(value) => setWeightMode(value as WeightMode)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aferido">Peso aferido em balança</SelectItem>
-                    <SelectItem value="relatado">Peso relatado pelo paciente/familiar</SelectItem>
-                    <SelectItem value="chumlea_braco_joelho">
-                      Estimar — Chumlea (braço e joelho)
-                    </SelectItem>
-                    <SelectItem value="chumlea_completo">
-                      Estimar — Chumlea completo (panturrilha, joelho, braço, dobra)
-                    </SelectItem>
-                    <SelectItem value="sem">Não calcular / sem peso</SelectItem>
-                  </SelectContent>
-                </Select>
-                {(weightMode === "aferido" || weightMode === "relatado") && (
-                  <Input
-                    inputMode="decimal"
-                    placeholder="Peso em kg"
-                    value={weightInput}
-                    onChange={(e) => setWeightInput(e.target.value)}
-                  />
+                <YesNoField
+                  label="O paciente sabe informar o peso?"
+                  value={knowsWeight}
+                  onChange={setKnowsWeight}
+                />
+                {knowsWeight === "sim" && (
+                  <div className="space-y-2">
+                    <Label>Peso relatado (kg)</Label>
+                    <Input
+                      inputMode="decimal"
+                      placeholder="Ex.: 68,5"
+                      value={weightInput}
+                      onChange={(e) => setWeightInput(e.target.value)}
+                    />
+                  </div>
                 )}
-              </div>
-
-              <div className="space-y-3">
-                <Label>Origem da altura</Label>
-                <Select
-                  value={heightMode}
-                  onValueChange={(value) => setHeightMode(value as HeightMode)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aferido">Altura aferida</SelectItem>
-                    <SelectItem value="relatado">Altura relatada</SelectItem>
-                    <SelectItem value="chumlea_joelho">
-                      Estimar — Chumlea (altura do joelho e idade)
-                    </SelectItem>
-                    <SelectItem value="sem">Não calcular / sem altura</SelectItem>
-                  </SelectContent>
-                </Select>
-                {(heightMode === "aferido" || heightMode === "relatado") && (
-                  <Input
-                    inputMode="decimal"
-                    placeholder="Altura em cm"
-                    value={heightInput}
-                    onChange={(e) => setHeightInput(e.target.value)}
-                  />
-                )}
-                {heightMode === "chumlea_joelho" && age === null && (
-                  <p className="text-sm text-destructive">
-                    A data de nascimento do paciente é necessária para estimar a altura.
+                {knowsWeight === "nao" && (
+                  <p className="text-sm text-muted-foreground">
+                    Peso será estimado por Chumlea a partir da altura do joelho (AJ) e da
+                    circunferência do braço (CB), com o protocolo selecionado abaixo.
                   </p>
                 )}
               </div>
 
               <Separator />
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Circunferência do braço (cm)"
-                  value={arm}
-                  onChange={setArm}
+              <div className="space-y-3">
+                <YesNoField
+                  label="O paciente sabe informar a altura?"
+                  value={knowsHeight}
+                  onChange={setKnowsHeight}
                 />
-                <Field
-                  label="Circunferência da panturrilha (cm)"
-                  value={calf}
-                  onChange={setCalf}
-                />
-                <Field label="Altura do joelho (cm)" value={knee} onChange={setKnee} />
-                <Field
-                  label="Dobra cutânea subescapular (mm)"
-                  value={skinfold}
-                  onChange={setSkinfold}
-                />
-                <Field label="Peso usual (kg)" value={usualWeight} onChange={setUsualWeight} />
-                <Field
-                  label="Período da perda de peso (meses)"
-                  value={lossMonths}
-                  onChange={setLossMonths}
-                />
+                {knowsHeight === "sim" && (
+                  <div className="space-y-2">
+                    <Label>Altura relatada (cm)</Label>
+                    <Input
+                      inputMode="decimal"
+                      placeholder="Ex.: 165"
+                      value={heightInput}
+                      onChange={(e) => setHeightInput(e.target.value)}
+                    />
+                  </div>
+                )}
+                {knowsHeight === "nao" && (
+                  <p className="text-sm text-muted-foreground">
+                    Altura será estimada por Chumlea a partir da altura do joelho (AJ) e da idade
+                    {age === null ? "" : ` (${age} anos)`}.
+                  </p>
+                )}
+                {knowsHeight === "nao" && age === null && (
+                  <p className="text-sm text-destructive">
+                    A data de nascimento do paciente é necessária para estimar a altura.
+                  </p>
+                )}
               </div>
+
+              {needsEstimate && (
+                <>
+                  <Separator />
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Protocolo da equação (branca ou preta)</Label>
+                      <Select
+                        value={protocol}
+                        onValueChange={(value) => setProtocol(value as ChumleaProtocol)}
+                      >
+                        <SelectTrigger className="max-w-sm">
+                          <SelectValue placeholder="Selecione o protocolo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="branca">Branca</SelectItem>
+                          <SelectItem value="negra">Preta / negra</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Raça/cor cadastrada: {RACE_LABELS[patient.race]}. A escolha do protocolo é
+                        sempre explícita e fica registrada na auditoria.
+                      </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="AJ — altura do joelho (cm)" value={knee} onChange={setKnee} />
+                      {knowsWeight === "nao" && (
+                        <Field
+                          label="CB — circunferência do braço (cm)"
+                          value={arm}
+                          onChange={setArm}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {(weightResult?.failure || heightResult?.failure) && (
                 <Alert variant="destructive">
@@ -538,96 +504,133 @@ function NovaTriagemPage() {
                   </AlertDescription>
                 </Alert>
               )}
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Condições clínicas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {CLINICAL_CONDITIONS.map((condition) => (
-                  <label
-                    key={condition.key}
-                    className="flex items-center gap-3 rounded-lg bg-surface p-3 text-sm"
-                  >
-                    <Checkbox
-                      checked={!!conditions[condition.key]}
-                      onCheckedChange={(checked) =>
-                        setConditions((prev) => ({ ...prev, [condition.key]: checked === true }))
-                      }
-                    />
-                    {condition.label}
-                  </label>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="clinical">Observações clínicas</Label>
-                <Textarea
-                  id="clinical"
-                  value={clinicalNotes}
-                  onChange={(e) => setClinicalNotes(e.target.value)}
-                  maxLength={1000}
+              <div className="rounded-xl bg-surface p-4">
+                <ResultLine
+                  label="IMC calculado"
+                  value={formatNumber(bmiResult?.value ?? null, " kg/m²")}
                 />
+                <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">IMC &lt; 20,5</span>
+                  <Badge variant={bmiUnder205 === "sim" ? "destructive" : "secondary"}>
+                    {bmiUnder205 === "" ? "Aguardando peso e altura" : bmiUnder205 === "sim" ? "Sim" : "Não"}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Preenchido automaticamente a partir do IMC.
+                </p>
               </div>
             </CardContent>
           </Card>
 
+          {/* 3. Comorbidades e alimentação */}
           <Card>
             <CardHeader>
-              <CardTitle>Alimentação e mastigação</CardTitle>
+              <CardTitle>Comorbidades e alimentação</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Choice
-                  label="Apetite"
-                  value={appetite}
-                  onChange={setAppetite}
-                  options={["Preservado", "Reduzido", "Ausente"]}
-                />
-                <Choice
-                  label="Aceitação da dieta"
-                  value={intake}
-                  onChange={setIntake}
-                  options={["Total", "Parcial (>50%)", "Parcial (<50%)", "Ausente"]}
-                />
-                <Choice
-                  label="Mastigação"
-                  value={chewing}
-                  onChange={setChewing}
-                  options={["Preservada", "Prejudicada", "Uso de prótese", "Ausência de dentes"]}
-                />
-                <Choice
-                  label="Deglutição"
-                  value={swallowing}
-                  onChange={setSwallowing}
-                  options={["Preservada", "Prejudicada", "Engasgos frequentes"]}
-                />
-                <Choice
-                  label="Via de alimentação"
-                  value={feedingRoute}
-                  onChange={setFeedingRoute}
-                  options={["Oral", "Enteral", "Parenteral", "Mista", "Jejum"]}
-                />
+            <CardContent className="space-y-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <YesNoField label="Diabetes mellitus (DM)" value={dm} onChange={setDm} />
+                <YesNoField label="Hipertensão arterial (HAS)" value={has} onChange={setHas} />
+              </div>
+              <Separator />
+              <YesNoField
+                label="Tem intolerância a algum alimento?"
+                value={intolerance}
+                onChange={setIntolerance}
+              />
+              {intolerance === "sim" && (
                 <div className="space-y-2">
-                  <Label htmlFor="diet">Tipo de dieta</Label>
+                  <Label htmlFor="intol">Qual alimento?</Label>
                   <Input
-                    id="diet"
-                    value={dietType}
-                    onChange={(e) => setDietType(e.target.value)}
-                    maxLength={120}
-                    placeholder="Ex.: branda hipossódica"
+                    id="intol"
+                    value={intoleranceWhich}
+                    onChange={(e) => setIntoleranceWhich(e.target.value)}
+                    maxLength={200}
+                    placeholder="Ex.: lactose"
                   />
                 </div>
-              </div>
+              )}
+              <Separator />
+              <YesNoField
+                label="Usa prótese dentária?"
+                value={denture}
+                onChange={handleDenture}
+              />
+              <YesNoField
+                label="Dentição completa"
+                value={fullDentition}
+                onChange={setFullDentition}
+                disabled={denture === "sim"}
+                hint={
+                  denture === "sim"
+                    ? "Desmarcado automaticamente por uso de prótese dentária."
+                    : undefined
+                }
+              />
+              {denture === "sim" && (
+                <YesNoField
+                  label="Tem dificuldade com alimentos rígidos ou secos?"
+                  value={hardFoodDifficulty}
+                  onChange={setHardFoodDifficulty}
+                />
+              )}
+              <Separator />
+              <YesNoField
+                label="Reduziu a fome nas últimas semanas?"
+                value={hungerReduction}
+                onChange={setHungerReduction}
+              />
+              <YesNoField label="Teve perda de peso?" value={weightLoss} onChange={setWeightLoss} />
+              {weightLoss === "sim" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Peso usual (kg)" value={usualWeight} onChange={setUsualWeight} />
+                  <Field
+                    label="Período da perda (meses)"
+                    value={lossMonths}
+                    onChange={setLossMonths}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 4. Avaliação complementar */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Avaliação complementar</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="feednotes">Observações da alimentação</Label>
+                <Label>Função intestinal</Label>
+                <Select value={bowel} onValueChange={setBowel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Não informado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["Normal", "Constipação", "Diarreia", "Alternada", "Ostomia"].map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <YesNoField label="Apresenta edema?" value={edema} onChange={setEdema} />
+              <Field label="CB — circunferência do braço (cm)" value={arm} onChange={setArm} />
+              <YesNoField
+                label="Paciente AACOC (acordado, atento, consciente, orientado e comunicativo)?"
+                value={aacoc}
+                onChange={setAacoc}
+              />
+              <div className="space-y-2">
+                <Label htmlFor="obs">Observação</Label>
                 <Textarea
-                  id="feednotes"
-                  value={feedingNotes}
-                  onChange={(e) => setFeedingNotes(e.target.value)}
+                  id="obs"
+                  value={observation}
+                  onChange={(e) => setObservation(e.target.value)}
                   maxLength={1000}
+                  placeholder="Pedidos do paciente, alimentos que não come, outras observações..."
                 />
               </div>
             </CardContent>
@@ -651,10 +654,7 @@ function NovaTriagemPage() {
                 source={heightResult?.source ?? null}
               />
               <ResultLine label="IMC" value={formatNumber(bmiResult?.value ?? null, " kg/m²")} />
-              <ResultLine
-                label="Perda de peso"
-                value={formatNumber(lossResult?.value ?? null, "%")}
-              />
+              <ResultLine label="CB" value={formatNumber(num(arm) || null, " cm")} />
               <Separator />
               <p className="text-xs text-muted-foreground">
                 Cada estimativa é registrada com método, fórmula, protocolo, parâmetros, data e
@@ -669,7 +669,7 @@ function NovaTriagemPage() {
               </Button>
               {protocolPending && (
                 <p className="text-xs text-destructive">
-                  Selecione o protocolo explicitamente para prosseguir com a estimativa.
+                  Selecione o protocolo (branca ou preta) para calcular as estimativas.
                 </p>
               )}
             </CardContent>
@@ -690,6 +690,7 @@ function NovaTriagemPage() {
             <p>
               <strong>{patient.full_name}</strong> · {ward?.name} · Leito {bed?.label}
             </p>
+            <p>Internação: {formatDate(admission.admitted_at)}</p>
             <p>Profissional: {professionalName || "não informado"}</p>
             <p>Tipo: {isReassessment ? "Reavaliação" : "Triagem inicial"}</p>
             <Separator />
@@ -705,20 +706,32 @@ function NovaTriagemPage() {
             />
             <ResultLine label="IMC" value={formatNumber(bmiResult?.value ?? null, " kg/m²")} />
             <ResultLine
-              label="Perda de peso"
-              value={formatNumber(lossResult?.value ?? null, "%")}
+              label="IMC < 20,5"
+              value={bmiUnder205 === "" ? "—" : bmiUnder205 === "sim" ? "Sim" : "Não"}
             />
             <Separator />
-            <p>
-              Condições assinaladas:{" "}
-              {CLINICAL_CONDITIONS.filter((c) => conditions[c.key])
-                .map((c) => c.label)
-                .join(", ") || "nenhuma"}
-            </p>
-            <p>
-              Alimentação: apetite {appetite || "—"} · aceitação {intake || "—"} · mastigação{" "}
-              {chewing || "—"} · via {feedingRoute || "—"}
-            </p>
+            <SummaryLine label="DM" value={dm} />
+            <SummaryLine label="HAS" value={has} />
+            <SummaryLine
+              label="Intolerância alimentar"
+              value={intolerance}
+              extra={intolerance === "sim" ? intoleranceWhich : ""}
+            />
+            <SummaryLine label="Prótese dentária" value={denture} />
+            <SummaryLine label="Dentição completa" value={fullDentition} />
+            <SummaryLine label="Dificuldade com alimentos rígidos/secos" value={hardFoodDifficulty} />
+            <SummaryLine label="Redução da fome" value={hungerReduction} />
+            <SummaryLine label="Perda de peso" value={weightLoss} />
+            <ResultLine label="Função intestinal" value={bowel || "—"} />
+            <SummaryLine label="Edema" value={edema} />
+            <ResultLine label="CB" value={formatNumber(num(arm) || null, " cm")} />
+            <SummaryLine label="AACOC" value={aacoc} />
+            {observation.trim() && (
+              <>
+                <Separator />
+                <p className="text-muted-foreground">Observação: {observation.trim()}</p>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
@@ -731,6 +744,51 @@ function NovaTriagemPage() {
         </DialogContent>
       </Dialog>
     </AppShell>
+  );
+}
+
+function ReadOnly({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-surface p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function YesNoField({
+  label,
+  value,
+  onChange,
+  disabled,
+  hint,
+}: {
+  label: string;
+  value: YesNo;
+  onChange: (value: YesNo) => void;
+  disabled?: boolean;
+  hint?: string | undefined;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="flex gap-2" role="group" aria-label={label}>
+        {(["sim", "nao"] as const).map((option) => (
+          <Button
+            key={option}
+            type="button"
+            variant={value === option ? "default" : "outline"}
+            disabled={disabled}
+            aria-pressed={value === option}
+            className={cn("min-w-24 flex-1 sm:flex-none")}
+            onClick={() => onChange(value === option ? "" : option)}
+          >
+            {option === "sim" ? "Sim" : "Não"}
+          </Button>
+        ))}
+      </div>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
   );
 }
 
@@ -751,34 +809,17 @@ function Field({
   );
 }
 
-function Choice({
+function SummaryLine({
   label,
   value,
-  onChange,
-  options,
+  extra,
 }: {
   label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
+  value: YesNo;
+  extra?: string;
 }) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Não informado" />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+  const text = value === "" ? "—" : value === "sim" ? "Sim" : "Não";
+  return <ResultLine label={label} value={extra ? `${text} · ${extra}` : text} />;
 }
 
 function ResultLine({

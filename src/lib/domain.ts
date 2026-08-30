@@ -72,7 +72,7 @@ export interface Screening {
   calf_circumference_cm: number | null;
   knee_height_cm: number | null;
   subscapular_skinfold_mm: number | null;
-  conditions: Record<string, boolean> | null;
+  conditions: Record<string, boolean | string | null> | null;
   appetite: string | null;
   intake_acceptance: string | null;
   chewing: string | null;
@@ -156,6 +156,40 @@ export const CLINICAL_CONDITIONS: { key: string; label: string }[] = [
   { key: "lesao_por_pressao", label: "Lesão por pressão" },
   { key: "jejum_prolongado", label: "Jejum prolongado" },
 ];
+
+/**
+ * Perguntas do roteiro de triagem gravadas no jsonb `conditions`.
+ * `kind` define como o valor é apresentado no histórico do paciente.
+ */
+export const SCREENING_QUESTIONS: {
+  key: string;
+  label: string;
+  kind: "sim_nao" | "texto";
+}[] = [
+  { key: "imc_menor_20_5", label: "IMC < 20,5", kind: "sim_nao" },
+  { key: "dm", label: "Diabetes mellitus (DM)", kind: "sim_nao" },
+  { key: "has", label: "Hipertensão arterial (HAS)", kind: "sim_nao" },
+  { key: "intolerancia_alimentar", label: "Intolerância alimentar", kind: "sim_nao" },
+  { key: "intolerancia_qual", label: "Qual intolerância", kind: "texto" },
+  { key: "protese_dentaria", label: "Prótese dentária", kind: "sim_nao" },
+  { key: "denticao_completa", label: "Dentição completa", kind: "sim_nao" },
+  {
+    key: "dificuldade_alimentos_rigidos",
+    label: "Dificuldade com alimentos rígidos ou secos",
+    kind: "sim_nao",
+  },
+  { key: "reducao_fome", label: "Redução da fome nas últimas semanas", kind: "sim_nao" },
+  { key: "perda_de_peso", label: "Perda de peso", kind: "sim_nao" },
+  { key: "funcao_intestinal", label: "Função intestinal", kind: "texto" },
+  { key: "edema", label: "Edema", kind: "sim_nao" },
+  { key: "aacoc", label: "AACOC (acordado, atento, consciente, orientado e comunicativo)", kind: "sim_nao" },
+];
+
+export function formatScreeningAnswer(value: boolean | string | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  return value;
+}
 
 export function ageFromBirthDate(birthDate: string | null): number | null {
   if (!birthDate) return null;
