@@ -264,6 +264,8 @@ function NovaTriagemPage() {
           patient_id: patient.id,
           professional_name: professionalName.trim().slice(0, 120),
           is_reassessment: isReassessment,
+          nan_level: nanLevel || null,
+          next_screening_at: nextScreening ? nextScreening.toISOString() : null,
           weight_kg: weightResult?.value ?? null,
           weight_source: weightResult?.source ?? null,
           weight_method: weightResult?.method ?? null,
