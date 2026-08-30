@@ -660,7 +660,7 @@ function NovaTriagemPage() {
           </Card>
         </div>
 
-        <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+        <div className="hidden space-y-4 lg:sticky lg:top-6 lg:block lg:self-start">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Valores calculados</CardTitle>
@@ -698,6 +698,7 @@ function NovaTriagemPage() {
             </CardContent>
           </Card>
         </div>
+
       </div>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
