@@ -1,9 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { BedDouble, CircleCheck, CircleSlash, UserPlus } from "lucide-react";
+import { useState } from "react";
+import { BedDouble, CircleCheck, CircleSlash, UserPlus, Utensils } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DietDialog } from "@/components/hospital/DietDialog";
 import {
   daysSince,
   formatDate,
@@ -21,6 +23,7 @@ interface BedCardProps {
 }
 
 export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: BedCardProps) {
+  const [dietOpen, setDietOpen] = useState(false);
   const inactive = !bed.is_active;
 
   return (
