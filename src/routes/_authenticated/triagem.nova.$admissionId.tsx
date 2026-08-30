@@ -389,6 +389,29 @@ function NovaTriagemPage() {
                 />
                 <Label htmlFor="reassess">Esta triagem é uma reavaliação</Label>
               </div>
+              <div className="space-y-2">
+                <Label>Nível de Avaliação Nutricional (NAN)</Label>
+                <Select
+                  value={nanLevel}
+                  onValueChange={(value) => setNanLevel(value as NanLevel)}
+                >
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Selecione o nível" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NAN_LEVELS.map((level) => (
+                      <SelectItem key={level.value} value={level.value}>
+                        {level.label} · retorno em {level.days} dias
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {nextScreening && (
+                  <p className="text-sm font-medium text-primary">
+                    Retorno da triagem: {formatDate(nextScreening.toISOString())}
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
