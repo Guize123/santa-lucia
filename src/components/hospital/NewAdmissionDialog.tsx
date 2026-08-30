@@ -134,7 +134,7 @@ export function NewAdmissionDialog({
       setPatientId("");
       setFullName("");
       setRecord("");
-      setBirthDate("");
+      setAge("");
       setDiagnosis("");
       void navigate({
         to: "/triagem/nova/$admissionId",
