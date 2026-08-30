@@ -772,6 +772,12 @@ function NovaTriagemPage() {
             <p>Internação: {formatDate(admission.admitted_at)}</p>
             <p>Profissional: {professionalName || "não informado"}</p>
             <p>Tipo: {isReassessment ? "Reavaliação" : "Triagem inicial"}</p>
+            <p>
+              NAN: {nanLevel ? nanLabel(nanLevel) : "não classificado"}
+              {nextScreening
+                ? ` · retorno em ${formatDate(nextScreening.toISOString())}`
+                : ""}
+            </p>
             <Separator />
             <ResultLine
               label="Peso"
