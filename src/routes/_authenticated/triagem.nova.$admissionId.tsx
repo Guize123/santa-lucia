@@ -892,3 +892,12 @@ function ResultLine({
     </div>
   );
 }
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 flex-1 rounded-lg bg-surface px-2 py-1.5 text-center">
+      <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="truncate text-sm font-bold">{value}</p>
+    </div>
+  );
+}
