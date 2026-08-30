@@ -216,6 +216,15 @@ export function NewAdmissionDialog({
                   maxLength={120}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="np-mother">Nome da mãe</Label>
+                <Input
+                  id="np-mother"
+                  value={motherName}
+                  onChange={(e) => setMotherName(e.target.value)}
+                  maxLength={120}
+                />
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="np-record">Prontuário</Label>
