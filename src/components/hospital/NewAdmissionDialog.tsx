@@ -63,7 +63,7 @@ export function NewAdmissionDialog({
   const [patientId, setPatientId] = useState("");
   const [fullName, setFullName] = useState("");
   const [record, setRecord] = useState("");
-  const [birthDate, setBirthDate] = useState("");
+  const [age, setAge] = useState("");
   const [sex, setSex] = useState<"F" | "M">("F");
   const [race, setRace] = useState<Race>("nao_informado");
   const [diagnosis, setDiagnosis] = useState("");
