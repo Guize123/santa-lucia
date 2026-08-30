@@ -628,7 +628,19 @@ function NovaTriagemPage() {
                 </Select>
               </div>
               <YesNoField label="Apresenta edema?" value={edema} onChange={setEdema} />
-              <Field label="CB — circunferência do braço (cm)" value={arm} onChange={setArm} />
+              {knowsWeight === "nao" ? (
+                <ReadOnly
+                  label="CB — circunferência do braço (cm)"
+                  value={
+                    Number.isFinite(num(arm)) && num(arm) > 0
+                      ? `${formatNumber(num(arm), " cm")} · já informada na estimativa de peso`
+                      : "Informe a CB na seção Peso e altura"
+                  }
+                />
+              ) : (
+                <Field label="CB — circunferência do braço (cm)" value={arm} onChange={setArm} />
+              )}
+
               <YesNoField
                 label="Paciente AACOC (acordado, atento, consciente, orientado e comunicativo)?"
                 value={aacoc}
