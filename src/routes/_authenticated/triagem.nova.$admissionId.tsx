@@ -142,6 +142,8 @@ function NovaTriagemPage() {
   const age = ageFromBirthDate(patient?.birth_date ?? null);
   const explicitProtocol = protocol || undefined;
   const needsEstimate = knowsWeight === "nao" || knowsHeight === "nao";
+  /** Primário = retorno em 5 dias; secundário = retorno em 4 dias. */
+  const nextScreening = nanLevel ? nextScreeningDate(nanLevel) : null;
 
   /** Prótese dentária implica dentição incompleta. */
   const handleDenture = (value: YesNo) => {
