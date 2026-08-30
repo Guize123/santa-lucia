@@ -93,13 +93,13 @@ export interface CareTypeOverview {
   neverScreened: number;
 }
 
-export async function fetchOverview(): Promise<CareTypeOverview[]> {
-  const [wards, beds, admissions, screenings] = await Promise.all([
-    fetchWards(),
-    fetchBeds(),
-    fetchAdmissions({ status: "ativa" }),
-    fetchScreenings(),
-  ]);
+export function buildOverview(
+  wards: Ward[],
+  beds: Bed[],
+  admissions: Admission[],
+  screenings: Screening[],
+): CareTypeOverview[] {
+
 
   const sevenDaysAgo = Date.now() - 7 * 86400000;
 

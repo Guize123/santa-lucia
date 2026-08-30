@@ -9,8 +9,10 @@ const DEMO_OPEN_ACCESS = true;
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (!error && data.user) return { user: data.user };
+    // getSession lê a sessão local (sem ida à rede), evitando latência em cada navegação.
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user) return { user: data.session.user };
+
 
     if (DEMO_OPEN_ACCESS) {
       // Sessão anônima temporária: mantém as políticas de segurança do banco

@@ -8,7 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CARE_TYPES, formatDateTime } from "@/lib/domain";
-import { fetchOverview, fetchScreenings, fetchWards } from "@/lib/queries";
+import {
+  buildOverview,
+  fetchAdmissions,
+  fetchBeds,
+  fetchScreenings,
+  fetchWards,
+} from "@/lib/queries";
+import { useMemo } from "react";
+
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -30,12 +38,18 @@ export const Route = createFileRoute("/_authenticated/painel")({
 });
 
 function Painel() {
-  const { data: overview, isPending } = useQuery({
-    queryKey: ["overview"],
-    queryFn: fetchOverview,
+  const { data: wards = [], isPending } = useQuery({ queryKey: ["wards"], queryFn: fetchWards });
+  const { data: beds = [] } = useQuery({ queryKey: ["beds"], queryFn: () => fetchBeds() });
+  const { data: admissions = [] } = useQuery({
+    queryKey: ["admissions", "ativa"],
+    queryFn: () => fetchAdmissions({ status: "ativa" }),
   });
-  const { data: wards = [] } = useQuery({ queryKey: ["wards"], queryFn: fetchWards });
   const { data: screenings = [] } = useQuery({ queryKey: ["screenings"], queryFn: () => fetchScreenings() });
+  const overview = useMemo(
+    () => buildOverview(wards, beds, admissions, screenings),
+    [wards, beds, admissions, screenings],
+  );
+
 
   return (
     <AppShell
