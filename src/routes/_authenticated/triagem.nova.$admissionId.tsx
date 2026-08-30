@@ -104,6 +104,7 @@ function NovaTriagemPage() {
 
   const [professionalName, setProfessionalName] = useState("");
   const [isReassessment, setIsReassessment] = useState(false);
+  const [nanLevel, setNanLevel] = useState<NanLevel | "">("");
 
   // Peso e altura
   const [knowsWeight, setKnowsWeight] = useState<YesNo>("sim");
