@@ -290,6 +290,17 @@ export function NewAdmissionDialog({
               maxLength={300}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="np-diet">Dieta / solicitações (etiqueta)</Label>
+            <Textarea
+              id="np-diet"
+              value={diet}
+              onChange={(e) => setDiet(e.target.value)}
+              maxLength={200}
+              placeholder="Ex.: sem leite, mamão, sem sopa"
+            />
+          </div>
         </div>
 
         <DialogFooter>
