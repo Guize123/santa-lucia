@@ -505,21 +505,32 @@ function NovaTriagemPage() {
                 </Alert>
               )}
 
-              <div className="rounded-xl bg-surface p-4">
+              <div className="space-y-2 rounded-xl bg-surface p-4">
+                <ResultLine
+                  label="Peso"
+                  value={formatNumber(weightResult?.value ?? null, " kg")}
+                  source={weightResult?.source ?? null}
+                />
+                <ResultLine
+                  label="Altura"
+                  value={formatNumber(heightResult?.value ?? null, " cm")}
+                  source={heightResult?.source ?? null}
+                />
                 <ResultLine
                   label="IMC calculado"
                   value={formatNumber(bmiResult?.value ?? null, " kg/m²")}
                 />
-                <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+                <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">IMC &lt; 20,5</span>
                   <Badge variant={bmiUnder205 === "sim" ? "destructive" : "secondary"}>
                     {bmiUnder205 === "" ? "Aguardando peso e altura" : bmiUnder205 === "sim" ? "Sim" : "Não"}
                   </Badge>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Preenchido automaticamente a partir do IMC.
+                <p className="text-xs text-muted-foreground">
+                  Resultado atualizado automaticamente conforme AJ e CB são preenchidos.
                 </p>
               </div>
+
             </CardContent>
           </Card>
 
