@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -44,6 +45,7 @@ export function NewAdmissionDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<"existente" | "novo">("existente");
   const [patientId, setPatientId] = useState("");
   const [fullName, setFullName] = useState("");
@@ -91,12 +93,16 @@ export function NewAdmissionDialog({
 
       if (!finalPatientId) throw new Error("Selecione um paciente.");
 
-      const { error } = await supabase.from("admissions").insert({
-        patient_id: finalPatientId,
-        bed_id: bed.id,
-        care_type: careType,
-        main_diagnosis: diagnosis.trim().slice(0, 300) || null,
-      });
+      const { data: admission, error } = await supabase
+        .from("admissions")
+        .insert({
+          patient_id: finalPatientId,
+          bed_id: bed.id,
+          care_type: careType,
+          main_diagnosis: diagnosis.trim().slice(0, 300) || null,
+        })
+        .select("id")
+        .single();
       if (error) {
         if (error.code === "23505" || error.message.includes("admissions_one_active_per_bed")) {
           throw new Error("Este leito já possui uma internação ativa.");
@@ -106,10 +112,10 @@ export function NewAdmissionDialog({
         }
         throw error;
       }
-      return finalPatientId;
+      return (admission as { id: string }).id;
     },
-    onSuccess: () => {
-      toast.success("Internação registrada.");
+    onSuccess: (admissionId) => {
+      toast.success("Internação registrada. Preencha a triagem do paciente.");
       queryClient.invalidateQueries();
       onOpenChange(false);
       setPatientId("");
@@ -117,6 +123,10 @@ export function NewAdmissionDialog({
       setRecord("");
       setBirthDate("");
       setDiagnosis("");
+      void navigate({
+        to: "/triagem/nova/$admissionId",
+        params: { admissionId },
+      });
     },
     onError: (error) => {
       toast.error(
