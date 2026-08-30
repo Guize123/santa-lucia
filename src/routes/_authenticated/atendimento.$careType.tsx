@@ -117,7 +117,7 @@ function AtendimentoPage() {
                     </div>
                   </dl>
 
-                  <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
                     <span>
                       <strong className="text-success">
                         {Math.max(0, wardBeds.length - occupied)}
@@ -127,7 +127,7 @@ function AtendimentoPage() {
                     <Badge variant={ward.is_active ? "default" : "secondary"}>
                       {ward.is_active ? "Ala ativa" : "Ala inativa"}
                     </Badge>
-                  </p>
+                  </div>
                 </CardContent>
               </Card>
             </Link>
