@@ -172,3 +172,46 @@
     letter-spacing: -0.01em;
   }
 }
+
+/* Etiquetas de dieta: 7,5 cm x 3 cm, com borda apenas em tela. */
+.etiqueta {
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid #000;
+}
+
+@media print {
+  @page {
+    size: 75mm 30mm;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .etiquetas-print,
+  .etiquetas-print * {
+    visibility: visible;
+  }
+
+  .etiquetas-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+  }
+
+  .etiquetas-print section,
+  .etiquetas-print > div,
+  .etiquetas-print .flex {
+    display: block;
+    margin: 0;
+    gap: 0;
+  }
+
+  .etiqueta {
+    display: flex !important;
+    border: none;
+    page-break-after: always;
+    break-after: page;
+  }
+}
