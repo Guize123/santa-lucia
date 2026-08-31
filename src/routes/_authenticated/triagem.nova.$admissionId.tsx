@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/hospital/AppShell";
@@ -31,6 +31,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  calculateArmCircumferenceAdequacy,
+  nutritionalDiagnosisFromArm,
+} from "@/lib/armCircumference";
+import {
   calculateBMI,
   calculateHeightChumlea,
   calculateWeightChumleaArmKnee,
@@ -39,7 +43,6 @@ import {
   type Sex,
 } from "@/lib/anthropometricCalculations";
 import {
-  NAN_LEVELS,
   RACE_LABELS,
   SOURCE_LABELS,
   ageFromBirthDate,
@@ -51,9 +54,20 @@ import {
   type MeasureSource,
   type NanLevel,
 } from "@/lib/domain";
-import { fetchAdmissions, fetchBeds, fetchPatient, fetchWard } from "@/lib/queries";
+import {
+  fetchAdmissions,
+  fetchBeds,
+  fetchEstimates,
+  fetchPatient,
+  fetchScreenings,
+  fetchWard,
+} from "@/lib/queries";
+import { createOfflineOperation, runOrQueue } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/triagem/nova/$admissionId")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    editar: typeof search["editar"] === "string" ? search["editar"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Nova triagem nutricional — Hospital Santa Lúcia" },
@@ -80,11 +94,11 @@ const num = (value: string): number => {
   return Number.isFinite(parsed) ? parsed : NaN;
 };
 
-const toBool = (value: YesNo): boolean | null =>
-  value === "" ? null : value === "sim";
+const toBool = (value: YesNo): boolean | null => (value === "" ? null : value === "sim");
 
 function NovaTriagemPage() {
   const { admissionId } = Route.useParams();
+  const { editar: screeningIdToEdit } = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -105,16 +119,30 @@ function NovaTriagemPage() {
     queryFn: () => fetchWard(bed!.ward_id),
     enabled: !!bed,
   });
+  const { data: screenings = [], isPending: screeningsPending } = useQuery({
+    queryKey: ["screenings", patient?.id],
+    queryFn: () => fetchScreenings(patient!.id),
+    enabled: !!patient,
+  });
+  const { data: estimates = [], isPending: estimatesPending } = useQuery({
+    queryKey: ["estimates", patient?.id],
+    queryFn: () => fetchEstimates(patient!.id),
+    enabled: !!patient,
+  });
+  const editingScreening = screeningIdToEdit
+    ? screenings.find((screening) => screening.id === screeningIdToEdit)
+    : undefined;
 
   const [professionalName, setProfessionalName] = useState("");
   const [isReassessment, setIsReassessment] = useState(false);
-  const [nanLevel, setNanLevel] = useState<NanLevel | "">("");
 
   // Peso e altura
   const [knowsWeight, setKnowsWeight] = useState<YesNo>("sim");
   const [weightInput, setWeightInput] = useState("");
+  const [directWeightSource, setDirectWeightSource] = useState<"aferido" | "relatado">("relatado");
   const [knowsHeight, setKnowsHeight] = useState<YesNo>("sim");
   const [heightInput, setHeightInput] = useState("");
+  const [directHeightSource, setDirectHeightSource] = useState<"aferido" | "relatado">("relatado");
   const [protocol, setProtocol] = useState<ChumleaProtocol | "">("");
   const [arm, setArm] = useState("");
   const [knee, setKnee] = useState("");
@@ -134,16 +162,109 @@ function NovaTriagemPage() {
   const [bowel, setBowel] = useState("");
   const [edema, setEdema] = useState<YesNo>("");
   const [aacoc, setAacoc] = useState<YesNo>("");
+  const [aacocDescription, setAacocDescription] = useState("");
+  const [intubated, setIntubated] = useState<YesNo>("");
   const [observation, setObservation] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const loadedScreeningId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !screeningIdToEdit ||
+      !editingScreening ||
+      screeningsPending ||
+      estimatesPending ||
+      loadedScreeningId.current === editingScreening.id
+    ) {
+      return;
+    }
+
+    const existingConditions = (editingScreening.conditions ?? {}) as Record<string, unknown>;
+    const yesNo = (value: unknown): YesNo =>
+      value === true ? "sim" : value === false ? "nao" : "";
+    const text = (value: unknown) => (typeof value === "string" ? value : "");
+    const matchingEstimate = estimates.find(
+      (estimate) =>
+        estimate.screening_id === editingScreening.id &&
+        (estimate.protocol === "branca" || estimate.protocol === "negra"),
+    );
+    const inferredProtocol =
+      matchingEstimate?.protocol === "branca" || matchingEstimate?.protocol === "negra"
+        ? matchingEstimate.protocol
+        : patient?.race === "preta"
+          ? "negra"
+          : "branca";
+
+    setProfessionalName(editingScreening.professional_name ?? "");
+    setIsReassessment(editingScreening.is_reassessment);
+    setKnowsWeight(editingScreening.weight_source === "estimado" ? "nao" : "sim");
+    setWeightInput(
+      editingScreening.weight_source === "estimado" || editingScreening.weight_kg === null
+        ? ""
+        : String(editingScreening.weight_kg),
+    );
+    setDirectWeightSource(editingScreening.weight_source === "aferido" ? "aferido" : "relatado");
+    setKnowsHeight(editingScreening.height_source === "estimado" ? "nao" : "sim");
+    setHeightInput(
+      editingScreening.height_source === "estimado" || editingScreening.height_cm === null
+        ? ""
+        : String(editingScreening.height_cm),
+    );
+    setDirectHeightSource(editingScreening.height_source === "aferido" ? "aferido" : "relatado");
+    setProtocol(
+      editingScreening.weight_source === "estimado" || editingScreening.height_source === "estimado"
+        ? inferredProtocol
+        : "",
+    );
+    setArm(
+      editingScreening.arm_circumference_cm === null
+        ? ""
+        : String(editingScreening.arm_circumference_cm),
+    );
+    setKnee(
+      editingScreening.knee_height_cm === null ? "" : String(editingScreening.knee_height_cm),
+    );
+    setDm(yesNo(existingConditions["dm"]));
+    setHas(yesNo(existingConditions["has"]));
+    setIntolerance(yesNo(existingConditions["intolerancia_alimentar"]));
+    setIntoleranceWhich(text(existingConditions["intolerancia_qual"]));
+    setDenture(yesNo(existingConditions["protese_dentaria"]));
+    setFullDentition(yesNo(existingConditions["denticao_completa"]));
+    setHardFoodDifficulty(yesNo(existingConditions["dificuldade_alimentos_rigidos"]));
+    setHungerReduction(yesNo(existingConditions["reducao_fome"]));
+    setWeightLoss(yesNo(existingConditions["perda_de_peso"]));
+    setUsualWeight(
+      editingScreening.usual_weight_kg === null ? "" : String(editingScreening.usual_weight_kg),
+    );
+    setLossMonths(
+      editingScreening.weight_loss_period_months === null
+        ? ""
+        : String(editingScreening.weight_loss_period_months),
+    );
+    setBowel(text(existingConditions["funcao_intestinal"]));
+    setEdema(yesNo(existingConditions["edema"]));
+    setAacoc(yesNo(existingConditions["aacoc"]));
+    setAacocDescription(text(existingConditions["aacoc_descricao"]));
+    setIntubated(yesNo(existingConditions["intubado"]));
+    setObservation(editingScreening.clinical_notes ?? "");
+    loadedScreeningId.current = editingScreening.id;
+  }, [
+    editingScreening,
+    estimates,
+    estimatesPending,
+    patient?.race,
+    screeningIdToEdit,
+    screeningsPending,
+  ]);
 
   const sex = (patient?.sex === "M" ? "M" : "F") as Sex;
   const race = patient?.race ?? "nao_informado";
   const age = ageFromBirthDate(patient?.birth_date ?? null);
   const explicitProtocol = protocol || undefined;
   const needsEstimate = knowsWeight === "nao" || knowsHeight === "nao";
-  /** Primário = retorno em 5 dias; secundário = retorno em 4 dias. */
-  const nextScreening = nanLevel ? nextScreeningDate(nanLevel) : null;
+  const nanLevel: NanLevel =
+    intubated === "sim" ? "terciario" : age !== null && age >= 70 ? "secundario" : "primario";
+  const nextScreening = nextScreeningDate(nanLevel);
 
   /** Prótese dentária implica dentição incompleta. */
   const handleDenture = (value: YesNo) => {
@@ -159,8 +280,11 @@ function NovaTriagemPage() {
       if (!Number.isFinite(value) || value <= 0) return null;
       return {
         value,
-        source: "relatado" as MeasureSource,
-        method: "Relatado pelo paciente/familiar",
+        source: directWeightSource as MeasureSource,
+        method:
+          directWeightSource === "aferido"
+            ? "Aferido durante o atendimento"
+            : "Relatado pelo paciente/familiar",
         audit: null as EstimateAudit | null,
         failure: null as string | null,
       };
@@ -175,6 +299,20 @@ function NovaTriagemPage() {
       professionalName,
     });
     if (!result.ok) {
+      if (
+        editingScreening?.weight_source === "estimado" &&
+        editingScreening.weight_kg !== null &&
+        !arm.trim() &&
+        !knee.trim()
+      ) {
+        return {
+          value: editingScreening.weight_kg,
+          source: "estimado" as MeasureSource,
+          method: editingScreening.weight_method,
+          audit: null as EstimateAudit | null,
+          failure: null as string | null,
+        };
+      }
       return { value: null, source: null, method: null, audit: null, failure: result.message };
     }
     return {
@@ -184,7 +322,18 @@ function NovaTriagemPage() {
       audit: result.audit,
       failure: null,
     };
-  }, [knowsWeight, weightInput, sex, race, arm, knee, explicitProtocol, professionalName]);
+  }, [
+    knowsWeight,
+    weightInput,
+    directWeightSource,
+    sex,
+    race,
+    arm,
+    knee,
+    explicitProtocol,
+    professionalName,
+    editingScreening,
+  ]);
 
   const heightResult = useMemo(() => {
     if (knowsHeight === "sim") {
@@ -192,8 +341,11 @@ function NovaTriagemPage() {
       if (!Number.isFinite(value) || value <= 0) return null;
       return {
         value,
-        source: "relatado" as MeasureSource,
-        method: "Relatada pelo paciente/familiar",
+        source: directHeightSource as MeasureSource,
+        method:
+          directHeightSource === "aferido"
+            ? "Aferida durante o atendimento"
+            : "Relatada pelo paciente/familiar",
         audit: null as EstimateAudit | null,
         failure: null as string | null,
       };
@@ -208,6 +360,19 @@ function NovaTriagemPage() {
       professionalName,
     });
     if (!result.ok) {
+      if (
+        editingScreening?.height_source === "estimado" &&
+        editingScreening.height_cm !== null &&
+        !knee.trim()
+      ) {
+        return {
+          value: editingScreening.height_cm,
+          source: "estimado" as MeasureSource,
+          method: editingScreening.height_method,
+          audit: null as EstimateAudit | null,
+          failure: null as string | null,
+        };
+      }
       return { value: null, source: null, method: null, audit: null, failure: result.message };
     }
     return {
@@ -217,7 +382,18 @@ function NovaTriagemPage() {
       audit: result.audit,
       failure: null,
     };
-  }, [knowsHeight, heightInput, sex, race, knee, age, explicitProtocol, professionalName]);
+  }, [
+    knowsHeight,
+    heightInput,
+    directHeightSource,
+    sex,
+    race,
+    knee,
+    age,
+    explicitProtocol,
+    professionalName,
+    editingScreening,
+  ]);
 
   const bmiResult = useMemo(() => {
     if (!weightResult?.value || !heightResult?.value) return null;
@@ -228,9 +404,19 @@ function NovaTriagemPage() {
   /** IMC < 20,5 é preenchido automaticamente a partir do IMC calculado. */
   const bmiUnder205: YesNo = bmiResult ? (bmiResult.value < 20.5 ? "sim" : "nao") : "";
 
+  const armAdequacy = useMemo(
+    () =>
+      calculateArmCircumferenceAdequacy({
+        armCircumferenceCm: num(arm),
+        ageYears: age,
+        sex: patient?.sex ?? null,
+      }),
+    [age, arm, patient?.sex],
+  );
+
   const protocolPending = needsEstimate && !protocol;
 
-  const conditions: Record<string, boolean | string | null> = {
+  const conditions: Record<string, boolean | string | number | null> = {
     imc_menor_20_5: toBool(bmiUnder205),
     dm: toBool(dm),
     has: toBool(has),
@@ -244,6 +430,11 @@ function NovaTriagemPage() {
     funcao_intestinal: bowel || null,
     edema: toBool(edema),
     aacoc: toBool(aacoc),
+    aacoc_descricao: aacoc === "nao" ? aacocDescription.trim().slice(0, 300) || null : null,
+    intubado: toBool(intubated),
+    adequacao_cb_percentual: armAdequacy?.adequacyPercentage ?? null,
+    classificacao_cb: armAdequacy?.classification ?? null,
+    referencia_cb_cm: armAdequacy?.referenceCm ?? null,
   };
 
   const mutation = useMutation({
@@ -257,68 +448,143 @@ function NovaTriagemPage() {
         return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
       };
 
-      const { data, error } = await supabase
-        .from("screenings")
-        .insert({
-          admission_id: admission.id,
-          patient_id: patient.id,
-          professional_name: professionalName.trim().slice(0, 120),
-          is_reassessment: isReassessment,
-          nan_level: nanLevel || null,
-          next_screening_at: nextScreening ? nextScreening.toISOString() : null,
-          weight_kg: weightResult?.value ?? null,
-          weight_source: weightResult?.source ?? null,
-          weight_method: weightResult?.method ?? null,
-          height_cm: heightResult?.value ?? null,
-          height_source: heightResult?.source ?? null,
-          height_method: heightResult?.method ?? null,
-          bmi: bmiResult?.value ?? null,
-          usual_weight_kg: optional(usualWeight),
-          weight_loss_period_months: optional(lossMonths),
-          arm_circumference_cm: optional(arm),
-          knee_height_cm: optional(knee),
-          conditions,
-          clinical_notes: observation.trim().slice(0, 1000) || null,
-          appetite: hungerReduction === "sim" ? "Reduzido" : hungerReduction === "nao" ? "Preservado" : null,
-          chewing:
-            denture === "sim"
-              ? hardFoodDifficulty === "sim"
-                ? "Uso de prótese · dificuldade com alimentos rígidos/secos"
-                : "Uso de prótese"
-              : denture === "nao"
-                ? "Dentição completa"
-                : null,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      const screeningId = (data as { id: string }).id;
+      if (screeningIdToEdit && !editingScreening) {
+        throw new Error("A triagem selecionada não foi encontrada.");
+      }
+
+      const screeningId = editingScreening?.id ?? crypto.randomUUID();
+      const screeningPayload = {
+        admission_id: admission.id,
+        patient_id: patient.id,
+        professional_name: professionalName.trim().slice(0, 120),
+        is_reassessment: isReassessment,
+        nan_level: nanLevel,
+        next_screening_at: nextScreening.toISOString(),
+        weight_kg: weightResult?.value ?? null,
+        weight_source: weightResult?.source ?? null,
+        weight_method: weightResult?.method ?? null,
+        height_cm: heightResult?.value ?? null,
+        height_source: heightResult?.source ?? null,
+        height_method: heightResult?.method ?? null,
+        bmi: bmiResult?.value ?? null,
+        usual_weight_kg: optional(usualWeight),
+        weight_loss_period_months: optional(lossMonths),
+        arm_circumference_cm: optional(arm),
+        knee_height_cm: optional(knee),
+        conditions,
+        clinical_notes: observation.trim().slice(0, 1000) || null,
+        appetite:
+          hungerReduction === "sim" ? "Reduzido" : hungerReduction === "nao" ? "Preservado" : null,
+        chewing:
+          denture === "sim"
+            ? hardFoodDifficulty === "sim"
+              ? "Uso de prótese · dificuldade com alimentos rígidos/secos"
+              : "Uso de prótese"
+            : denture === "nao"
+              ? "Dentição completa"
+              : null,
+      };
+      const screeningSave = editingScreening
+        ? await runOrQueue(
+            createOfflineOperation({
+              table: "screenings",
+              action: "update",
+              recordId: screeningId,
+              payload: screeningPayload,
+            }),
+            async () => {
+              const { error } = await supabase
+                .from("screenings")
+                .update(screeningPayload)
+                .eq("id", screeningId);
+              if (error) throw error;
+            },
+          )
+        : await runOrQueue(
+            createOfflineOperation({
+              table: "screenings",
+              action: "insert",
+              payload: { id: screeningId, ...screeningPayload },
+            }),
+            async () => {
+              const { error } = await supabase
+                .from("screenings")
+                .insert({ id: screeningId, ...screeningPayload });
+              if (error) throw error;
+            },
+          );
+
+      let auditQueued = false;
+      if (editingScreening) {
+        const previousAudits = estimates.filter(
+          (estimate) => estimate.screening_id === editingScreening.id,
+        );
+        for (const estimate of previousAudits) {
+          const auditDelete = await runOrQueue(
+            createOfflineOperation({
+              table: "anthropometric_estimates",
+              action: "delete",
+              recordId: estimate.id,
+            }),
+            async () => {
+              const { error } = await supabase
+                .from("anthropometric_estimates")
+                .delete()
+                .eq("id", estimate.id);
+              if (error) throw error;
+            },
+          );
+          auditQueued ||= auditDelete.queued;
+        }
+      }
 
       const audits = [weightResult?.audit, heightResult?.audit, bmiResult?.audit].filter(
         Boolean,
       ) as EstimateAudit[];
 
       if (audits.length > 0) {
-        const { error: auditError } = await supabase.from("anthropometric_estimates").insert(
-          audits.map((audit) => ({
-            screening_id: screeningId,
-            patient_id: patient.id,
-            target: audit.target,
-            method: audit.method,
-            formula: audit.formula,
-            protocol: audit.protocol ?? null,
-            parameters: audit.parameters,
-            result: audit.result,
-            unit: audit.unit,
-            professional_name: professionalName.trim().slice(0, 120),
-          })),
+        const auditRows = audits.map((audit) => ({
+          id: crypto.randomUUID(),
+          screening_id: screeningId,
+          patient_id: patient.id,
+          target: audit.target,
+          method: audit.method,
+          formula: audit.formula,
+          protocol: audit.protocol ?? null,
+          parameters: audit.parameters,
+          result: audit.result,
+          unit: audit.unit,
+          professional_name: professionalName.trim().slice(0, 120),
+        }));
+        const auditSave = await runOrQueue(
+          createOfflineOperation({
+            table: "anthropometric_estimates",
+            action: "insert",
+            payload: auditRows,
+          }),
+          async () => {
+            const { error: auditError } = await supabase
+              .from("anthropometric_estimates")
+              .insert(auditRows);
+            if (auditError) throw auditError;
+          },
         );
-        if (auditError) throw auditError;
+        auditQueued = auditSave.queued;
       }
-      return screeningId;
+      return {
+        screeningId,
+        queued: screeningSave.queued || auditQueued,
+        edited: Boolean(editingScreening),
+      };
     },
-    onSuccess: () => {
-      toast.success("Triagem registrada com sucesso.");
+    onSuccess: ({ queued, edited }) => {
+      toast.success(
+        queued
+          ? `${edited ? "Alteração" : "Triagem"} salva no aparelho. Ela será sincronizada quando a internet voltar.`
+          : edited
+            ? "Triagem atualizada com sucesso."
+            : "Triagem registrada com sucesso.",
+      );
       queryClient.invalidateQueries();
       setConfirmOpen(false);
       if (patient) navigate({ to: "/paciente/$patientId", params: { patientId: patient.id } });
@@ -328,9 +594,12 @@ function NovaTriagemPage() {
     },
   });
 
-  if (!admission || !patient) {
+  if (!admission || !patient || (screeningIdToEdit && (screeningsPending || estimatesPending))) {
     return (
-      <AppShell title="Nova triagem" crumbs={[{ label: "Painel", to: "/painel" }]}>
+      <AppShell
+        title={screeningIdToEdit ? "Editar triagem" : "Nova triagem"}
+        crumbs={[{ label: "Painel", to: "/painel" }]}
+      >
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
             Carregando dados da internação...
@@ -342,7 +611,7 @@ function NovaTriagemPage() {
 
   return (
     <AppShell
-      title={`Nova triagem — ${patient.full_name}`}
+      title={`${editingScreening ? "Editar triagem" : "Nova triagem"} — ${patient.full_name}`}
       subtitle={`${ward?.name ?? "—"} · Leito ${bed?.label ?? "—"} · ${careTypeLabel(
         admission.care_type,
       )} · Raça/cor: ${RACE_LABELS[patient.race]}`}
@@ -359,7 +628,7 @@ function NovaTriagemPage() {
             ]
           : []),
         { label: patient.full_name, to: "/paciente/$patientId", params: { patientId: patient.id } },
-        { label: "Nova triagem" },
+        { label: editingScreening ? "Editar triagem" : "Nova triagem" },
       ]}
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -369,16 +638,13 @@ function NovaTriagemPage() {
             <CardHeader>
               <CardTitle>Identificação</CardTitle>
               <CardDescription>
-                Nenhuma classificação automática de risco é aplicada neste MVP.
+                O NAN é definido automaticamente pela idade e pela condição de intubação.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <ReadOnly label="Nome do paciente" value={patient.full_name} />
-                <ReadOnly
-                  label="Data da internação"
-                  value={formatDate(admission.admitted_at)}
-                />
+                <ReadOnly label="Data da internação" value={formatDate(admission.admitted_at)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="prof">Profissional responsável</Label>
@@ -398,28 +664,13 @@ function NovaTriagemPage() {
                 />
                 <Label htmlFor="reassess">Esta triagem é uma reavaliação</Label>
               </div>
-              <div className="space-y-2">
-                <Label>Nível de Avaliação Nutricional (NAN)</Label>
-                <Select
-                  value={nanLevel}
-                  onValueChange={(value) => setNanLevel(value as NanLevel)}
-                >
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Selecione o nível" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NAN_LEVELS.map((level) => (
-                      <SelectItem key={level.value} value={level.value}>
-                        {level.label} · retorno em {level.days} dias
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {nextScreening && (
-                  <p className="text-sm font-medium text-primary">
-                    Retorno da triagem: {formatDate(nextScreening.toISOString())}
-                  </p>
-                )}
+              <YesNoField label="Paciente intubado?" value={intubated} onChange={setIntubated} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ReadOnly label="NAN automático" value={nanLabel(nanLevel)} />
+                <ReadOnly
+                  label="Retorno da triagem"
+                  value={formatDate(nextScreening.toISOString())}
+                />
               </div>
             </CardContent>
           </Card>
@@ -436,19 +687,38 @@ function NovaTriagemPage() {
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <YesNoField
-                  label="O paciente sabe informar o peso?"
+                  label="Peso disponível sem estimativa por fórmula?"
                   value={knowsWeight}
                   onChange={setKnowsWeight}
                 />
                 {knowsWeight === "sim" && (
-                  <div className="space-y-2">
-                    <Label>Peso relatado (kg)</Label>
-                    <Input
-                      inputMode="decimal"
-                      placeholder="Ex.: 68,5"
-                      value={weightInput}
-                      onChange={(e) => setWeightInput(e.target.value)}
-                    />
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px]">
+                    <div className="space-y-2">
+                      <Label>Peso (kg)</Label>
+                      <Input
+                        inputMode="decimal"
+                        placeholder="Ex.: 68,5"
+                        value={weightInput}
+                        onChange={(e) => setWeightInput(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Origem do peso</Label>
+                      <Select
+                        value={directWeightSource}
+                        onValueChange={(value) =>
+                          setDirectWeightSource(value as "aferido" | "relatado")
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="aferido">Aferido</SelectItem>
+                          <SelectItem value="relatado">Relatado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 )}
                 {knowsWeight === "nao" && (
@@ -463,19 +733,38 @@ function NovaTriagemPage() {
 
               <div className="space-y-3">
                 <YesNoField
-                  label="O paciente sabe informar a altura?"
+                  label="Altura disponível sem estimativa por fórmula?"
                   value={knowsHeight}
                   onChange={setKnowsHeight}
                 />
                 {knowsHeight === "sim" && (
-                  <div className="space-y-2">
-                    <Label>Altura relatada (cm)</Label>
-                    <Input
-                      inputMode="decimal"
-                      placeholder="Ex.: 165"
-                      value={heightInput}
-                      onChange={(e) => setHeightInput(e.target.value)}
-                    />
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px]">
+                    <div className="space-y-2">
+                      <Label>Altura (cm)</Label>
+                      <Input
+                        inputMode="decimal"
+                        placeholder="Ex.: 165"
+                        value={heightInput}
+                        onChange={(e) => setHeightInput(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Origem da altura</Label>
+                      <Select
+                        value={directHeightSource}
+                        onValueChange={(value) =>
+                          setDirectHeightSource(value as "aferido" | "relatado")
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="aferido">Aferida</SelectItem>
+                          <SelectItem value="relatado">Relatada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 )}
                 {knowsHeight === "nao" && (
@@ -555,14 +844,17 @@ function NovaTriagemPage() {
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">IMC &lt; 20,5</span>
                   <Badge variant={bmiUnder205 === "sim" ? "destructive" : "secondary"}>
-                    {bmiUnder205 === "" ? "Aguardando peso e altura" : bmiUnder205 === "sim" ? "Sim" : "Não"}
+                    {bmiUnder205 === ""
+                      ? "Aguardando peso e altura"
+                      : bmiUnder205 === "sim"
+                        ? "Sim"
+                        : "Não"}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Resultado atualizado automaticamente conforme AJ e CB são preenchidos.
                 </p>
               </div>
-
             </CardContent>
           </Card>
 
@@ -595,11 +887,7 @@ function NovaTriagemPage() {
                 </div>
               )}
               <Separator />
-              <YesNoField
-                label="Usa prótese dentária?"
-                value={denture}
-                onChange={handleDenture}
-              />
+              <YesNoField label="Usa prótese dentária?" value={denture} onChange={handleDenture} />
               <YesNoField
                 label="Dentição completa"
                 value={fullDentition}
@@ -673,11 +961,46 @@ function NovaTriagemPage() {
                 <Field label="CB — circunferência do braço (cm)" value={arm} onChange={setArm} />
               )}
 
+              <div className="grid gap-3 sm:grid-cols-3">
+                <ReadOnly
+                  label="CB de referência (P50)"
+                  value={
+                    armAdequacy
+                      ? `${formatNumber(armAdequacy.referenceCm, " cm")} · ${armAdequacy.referenceAgeRange}`
+                      : "Informe CB, sexo e data de nascimento"
+                  }
+                />
+                <ReadOnly
+                  label="Adequação da CB"
+                  value={
+                    armAdequacy
+                      ? formatNumber(armAdequacy.adequacyPercentage, "%")
+                      : "Aguardando dados"
+                  }
+                />
+                <ReadOnly
+                  label="Classificação da CB"
+                  value={armAdequacy?.classification ?? "Aguardando dados"}
+                />
+              </div>
+
               <YesNoField
                 label="Paciente AACOC (acordado, atento, consciente, orientado e comunicativo)?"
                 value={aacoc}
                 onChange={setAacoc}
               />
+              {aacoc === "nao" && (
+                <div className="space-y-2">
+                  <Label htmlFor="aacoc-description">Descreva como o paciente está</Label>
+                  <Textarea
+                    id="aacoc-description"
+                    value={aacocDescription}
+                    onChange={(event) => setAacocDescription(event.target.value)}
+                    maxLength={300}
+                    placeholder="Ex.: sonolento, desorientado e pouco comunicativo"
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="obs">Observação</Label>
                 <Textarea
@@ -710,6 +1033,14 @@ function NovaTriagemPage() {
               />
               <ResultLine label="IMC" value={formatNumber(bmiResult?.value ?? null, " kg/m²")} />
               <ResultLine label="CB" value={formatNumber(num(arm) || null, " cm")} />
+              <ResultLine
+                label="Adequação da CB"
+                value={
+                  armAdequacy
+                    ? `${formatNumber(armAdequacy.adequacyPercentage, "%")} · ${armAdequacy.classification}`
+                    : "—"
+                }
+              />
               <Separator />
               <p className="text-xs text-muted-foreground">
                 Cada estimativa é registrada com método, fórmula, protocolo, parâmetros, data e
@@ -739,7 +1070,14 @@ function NovaTriagemPage() {
           <MiniStat label="Peso" value={formatNumber(weightResult?.value ?? null, " kg")} />
           <MiniStat label="Altura" value={formatNumber(heightResult?.value ?? null, " cm")} />
           <MiniStat label="IMC" value={formatNumber(bmiResult?.value ?? null, "")} />
-          <MiniStat label="CB" value={formatNumber(num(arm) || null, " cm")} />
+          <MiniStat
+            label="CB"
+            value={
+              armAdequacy
+                ? formatNumber(armAdequacy.adequacyPercentage, "%")
+                : formatNumber(num(arm) || null, " cm")
+            }
+          />
         </div>
         <Button
           className="mt-2 h-12 w-full text-base"
@@ -755,14 +1093,16 @@ function NovaTriagemPage() {
         )}
       </div>
 
-
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Confirmar triagem</DialogTitle>
+            <DialogTitle>
+              {editingScreening ? "Confirmar alterações" : "Confirmar triagem"}
+            </DialogTitle>
             <DialogDescription>
-              Revise o resumo antes de salvar. Após salvar, o registro passa a compor o histórico do
-              paciente.
+              {editingScreening
+                ? "Revise o resumo antes de atualizar esta triagem."
+                : "Revise o resumo antes de salvar. Após salvar, o registro passa a compor o histórico do paciente."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 text-sm">
@@ -773,10 +1113,7 @@ function NovaTriagemPage() {
             <p>Profissional: {professionalName || "não informado"}</p>
             <p>Tipo: {isReassessment ? "Reavaliação" : "Triagem inicial"}</p>
             <p>
-              NAN: {nanLevel ? nanLabel(nanLevel) : "não classificado"}
-              {nextScreening
-                ? ` · retorno em ${formatDate(nextScreening.toISOString())}`
-                : ""}
+              NAN: {nanLabel(nanLevel)} · retorno em {formatDate(nextScreening.toISOString())}
             </p>
             <Separator />
             <ResultLine
@@ -804,13 +1141,32 @@ function NovaTriagemPage() {
             />
             <SummaryLine label="Prótese dentária" value={denture} />
             <SummaryLine label="Dentição completa" value={fullDentition} />
-            <SummaryLine label="Dificuldade com alimentos rígidos/secos" value={hardFoodDifficulty} />
+            <SummaryLine
+              label="Dificuldade com alimentos rígidos/secos"
+              value={hardFoodDifficulty}
+            />
             <SummaryLine label="Redução da fome" value={hungerReduction} />
             <SummaryLine label="Perda de peso" value={weightLoss} />
             <ResultLine label="Função intestinal" value={bowel || "—"} />
             <SummaryLine label="Edema" value={edema} />
             <ResultLine label="CB" value={formatNumber(num(arm) || null, " cm")} />
+            <ResultLine
+              label="Adequação da CB"
+              value={
+                armAdequacy
+                  ? `${formatNumber(armAdequacy.adequacyPercentage, "%")} · ${armAdequacy.classification}`
+                  : "—"
+              }
+            />
+            <ResultLine
+              label="Diagnóstico nutricional"
+              value={nutritionalDiagnosisFromArm(armAdequacy?.classification)}
+            />
+            <SummaryLine label="Intubado" value={intubated} />
             <SummaryLine label="AACOC" value={aacoc} />
+            {aacoc === "nao" && aacocDescription.trim() && (
+              <ResultLine label="Estado do paciente" value={aacocDescription.trim()} />
+            )}
             {observation.trim() && (
               <>
                 <Separator />
@@ -823,7 +1179,11 @@ function NovaTriagemPage() {
               Voltar e editar
             </Button>
             <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-              {mutation.isPending ? "Salvando..." : "Confirmar e salvar"}
+              {mutation.isPending
+                ? "Salvando..."
+                : editingScreening
+                  ? "Salvar alterações"
+                  : "Confirmar e salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -899,15 +1259,7 @@ function Field({
   );
 }
 
-function SummaryLine({
-  label,
-  value,
-  extra,
-}: {
-  label: string;
-  value: YesNo;
-  extra?: string;
-}) {
+function SummaryLine({ label, value, extra }: { label: string; value: YesNo; extra?: string }) {
   const text = value === "" ? "—" : value === "sim" ? "Sim" : "Não";
   return <ResultLine label={label} value={extra ? `${text} · ${extra}` : text} />;
 }

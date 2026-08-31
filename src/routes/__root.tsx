@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { OFFLINE_SYNC_EVENT, registerOfflineSupport } from "@/lib/offline";
 
 function NotFoundComponent() {
   return (
@@ -88,6 +89,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },
+      { name: "theme-color", content: "#174f83" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -98,6 +100,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap",
       },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/favicon.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
@@ -132,6 +136,19 @@ function RootComponent() {
     });
     return () => data.subscription.unsubscribe();
   }, [queryClient, router]);
+
+  useEffect(() => {
+    const cleanup = registerOfflineSupport();
+    const refreshAfterSync = (event: Event) => {
+      const detail = (event as CustomEvent<{ synced?: number }>).detail;
+      if (detail?.synced) queryClient.invalidateQueries();
+    };
+    window.addEventListener(OFFLINE_SYNC_EVENT, refreshAfterSync);
+    return () => {
+      cleanup();
+      window.removeEventListener(OFFLINE_SYNC_EVENT, refreshAfterSync);
+    };
+  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>

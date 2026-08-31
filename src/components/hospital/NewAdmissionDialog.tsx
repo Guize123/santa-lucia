@@ -25,6 +25,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { RACE_LABELS, type Bed, type CareType, type Race } from "@/lib/domain";
+import { createOfflineOperation, runOrQueue } from "@/lib/offline";
 import { fetchAdmissions, fetchPatients } from "@/lib/queries";
 
 const newPatientSchema = z.object({
@@ -70,7 +71,7 @@ export function NewAdmissionDialog({
   const [race, setRace] = useState<Race>("nao_informado");
   const [diagnosis, setDiagnosis] = useState("");
   const [diet, setDiet] = useState("");
-
+  const [dietObservation, setDietObservation] = useState("");
 
   const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
   const { data: activeAdmissions = [] } = useQuery({
@@ -84,6 +85,7 @@ export function NewAdmissionDialog({
     mutationFn: async () => {
       if (!bed) throw new Error("Leito inválido.");
       let finalPatientId = patientId;
+      let queued = false;
 
       if (mode === "novo") {
         const parsed = newPatientSchema.parse({
@@ -94,48 +96,65 @@ export function NewAdmissionDialog({
           sex,
           race,
         });
-        const { data, error } = await supabase
-          .from("patients")
-          .insert({
-            full_name: parsed.full_name,
-            medical_record: parsed.medical_record || null,
-            mother_name: parsed.mother_name || null,
-            birth_date: birthDateFromAge(parsed.age ?? ""),
-            sex: parsed.sex,
-            race: parsed.race,
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
-        finalPatientId = (data as { id: string }).id;
+        finalPatientId = crypto.randomUUID();
+        const patientPayload = {
+          id: finalPatientId,
+          full_name: parsed.full_name,
+          medical_record: parsed.medical_record || null,
+          mother_name: parsed.mother_name || null,
+          birth_date: birthDateFromAge(parsed.age ?? ""),
+          sex: parsed.sex,
+          race: parsed.race,
+        };
+        const patientSave = await runOrQueue(
+          createOfflineOperation({ table: "patients", action: "insert", payload: patientPayload }),
+          async () => {
+            const { error } = await supabase.from("patients").insert(patientPayload);
+            if (error) throw error;
+          },
+        );
+        queued = patientSave.queued;
       }
 
       if (!finalPatientId) throw new Error("Selecione um paciente.");
 
-      const { data: admission, error } = await supabase
-        .from("admissions")
-        .insert({
-          patient_id: finalPatientId,
-          bed_id: bed.id,
-          care_type: careType,
-          main_diagnosis: diagnosis.trim().slice(0, 300) || null,
-          diet_note: diet.trim().slice(0, 200) || null,
-        })
-        .select("id")
-        .single();
-      if (error) {
-        if (error.code === "23505" || error.message.includes("admissions_one_active_per_bed")) {
-          throw new Error("Este leito já possui uma internação ativa.");
-        }
-        if (error.message.includes("admissions_one_active_per_patient")) {
-          throw new Error("Este paciente já possui uma internação ativa em outro leito.");
-        }
-        throw error;
-      }
-      return (admission as { id: string }).id;
+      const admissionId = crypto.randomUUID();
+      const admissionPayload = {
+        id: admissionId,
+        patient_id: finalPatientId,
+        bed_id: bed.id,
+        care_type: careType,
+        main_diagnosis: diagnosis.trim().slice(0, 300) || null,
+        diet_note: diet.trim().slice(0, 200) || null,
+        notes: dietObservation.trim().slice(0, 200) || null,
+      };
+      const admissionSave = await runOrQueue(
+        createOfflineOperation({
+          table: "admissions",
+          action: "insert",
+          payload: admissionPayload,
+        }),
+        async () => {
+          const { error } = await supabase.from("admissions").insert(admissionPayload);
+          if (error) {
+            if (error.code === "23505" || error.message.includes("admissions_one_active_per_bed")) {
+              throw new Error("Este leito já possui uma internação ativa.");
+            }
+            if (error.message.includes("admissions_one_active_per_patient")) {
+              throw new Error("Este paciente já possui uma internação ativa em outro leito.");
+            }
+            throw error;
+          }
+        },
+      );
+      return { admissionId, queued: queued || admissionSave.queued };
     },
-    onSuccess: (admissionId) => {
-      toast.success("Internação registrada. Preencha a triagem do paciente.");
+    onSuccess: ({ admissionId, queued }) => {
+      toast.success(
+        queued
+          ? "Internação salva no aparelho e aguardando sincronização."
+          : "Internação registrada. Preencha a triagem do paciente.",
+      );
       queryClient.invalidateQueries();
       onOpenChange(false);
       setPatientId("");
@@ -145,10 +164,14 @@ export function NewAdmissionDialog({
       setAge("");
       setDiagnosis("");
       setDiet("");
-      void navigate({
-        to: "/triagem/nova/$admissionId",
-        params: { admissionId },
-      });
+      setDietObservation("");
+      if (!queued) {
+        void navigate({
+          to: "/triagem/nova/$admissionId",
+          params: { admissionId },
+          search: { editar: undefined },
+        });
+      }
     },
     onError: (error) => {
       toast.error(
@@ -179,7 +202,10 @@ export function NewAdmissionDialog({
             >
               Paciente existente
             </Button>
-            <Button variant={mode === "novo" ? "default" : "outline"} onClick={() => setMode("novo")}>
+            <Button
+              variant={mode === "novo" ? "default" : "outline"}
+              onClick={() => setMode("novo")}
+            >
               Novo paciente
             </Button>
           </div>
@@ -292,13 +318,26 @@ export function NewAdmissionDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="np-diet">Dieta / solicitações (etiqueta)</Label>
+            <Label htmlFor="np-diet">Dieta</Label>
             <Textarea
               id="np-diet"
               value={diet}
               onChange={(e) => setDiet(e.target.value)}
               maxLength={200}
-              placeholder="Ex.: sem leite, mamão, sem sopa"
+              rows={2}
+              placeholder="Ex.: GERAL HAS"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="np-diet-observation">Observação da etiqueta</Label>
+            <Textarea
+              id="np-diet-observation"
+              value={dietObservation}
+              onChange={(e) => setDietObservation(e.target.value)}
+              maxLength={200}
+              rows={2}
+              placeholder="Ex.: MAMÃO"
             />
           </div>
         </div>

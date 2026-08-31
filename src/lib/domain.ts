@@ -53,12 +53,23 @@ export interface Admission {
   notes: string | null;
 }
 
+export function formatDietLabel(
+  diet: string | null | undefined,
+  observation: string | null | undefined,
+): string {
+  return [diet, observation]
+    .map((value) => value?.trim().replace(/\s+/g, " ") ?? "")
+    .filter(Boolean)
+    .join(" + ");
+}
+
 /** Nível de Avaliação Nutricional (NAN) definido na triagem. */
-export type NanLevel = "primario" | "secundario";
+export type NanLevel = "primario" | "secundario" | "terciario";
 
 export const NAN_LEVELS: { value: NanLevel; label: string; days: number }[] = [
   { value: "primario", label: "Primário", days: 5 },
   { value: "secundario", label: "Secundário", days: 4 },
+  { value: "terciario", label: "Terciário", days: 3 },
 ];
 
 export const nanDays = (level: NanLevel): number =>
@@ -97,7 +108,7 @@ export interface Screening {
   calf_circumference_cm: number | null;
   knee_height_cm: number | null;
   subscapular_skinfold_mm: number | null;
-  conditions: Record<string, boolean | string | null> | null;
+  conditions: Record<string, boolean | string | number | null> | null;
   appetite: string | null;
   intake_acceptance: string | null;
   chewing: string | null;
@@ -207,12 +218,19 @@ export const SCREENING_QUESTIONS: {
   { key: "perda_de_peso", label: "Perda de peso", kind: "sim_nao" },
   { key: "funcao_intestinal", label: "Função intestinal", kind: "texto" },
   { key: "edema", label: "Edema", kind: "sim_nao" },
-  { key: "aacoc", label: "AACOC (acordado, atento, consciente, orientado e comunicativo)", kind: "sim_nao" },
+  {
+    key: "aacoc",
+    label: "AACOC (acordado, atento, consciente, orientado e comunicativo)",
+    kind: "sim_nao",
+  },
 ];
 
-export function formatScreeningAnswer(value: boolean | string | null | undefined): string | null {
+export function formatScreeningAnswer(
+  value: boolean | string | number | null | undefined,
+): string | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "number") return String(value);
   return value;
 }
 

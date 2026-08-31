@@ -69,16 +69,13 @@ function QuartoPage() {
 
   const beds = useMemo(() => allBeds.filter((b) => b.room_id === roomId), [allBeds, roomId]);
   const patientById = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
-  const admissionByBed = useMemo(
-    () => new Map(admissions.map((a) => [a.bed_id, a])),
-    [admissions],
-  );
+  const admissionByBed = useMemo(() => new Map(admissions.map((a) => [a.bed_id, a])), [admissions]);
   const lastScreeningByAdmission = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, (typeof screenings)[number]>();
     for (const screening of screenings) {
       const current = map.get(screening.admission_id);
-      if (!current || new Date(screening.screened_at) > new Date(current)) {
-        map.set(screening.admission_id, screening.screened_at);
+      if (!current || new Date(screening.screened_at) > new Date(current.screened_at)) {
+        map.set(screening.admission_id, screening);
       }
     }
     return map;
@@ -151,9 +148,7 @@ function QuartoPage() {
                 bed={bed}
                 admission={admission}
                 patient={admission ? patientById.get(admission.patient_id) : undefined}
-                lastScreening={
-                  admission ? lastScreeningByAdmission.get(admission.id) : undefined
-                }
+                latestScreening={admission ? lastScreeningByAdmission.get(admission.id) : undefined}
                 onAdmit={setAdmissionBed}
               />
             );

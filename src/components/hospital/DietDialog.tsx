@@ -14,7 +14,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import type { Admission } from "@/lib/domain";
+import { formatDietLabel, type Admission } from "@/lib/domain";
+import { createOfflineOperation, runOrQueue } from "@/lib/offline";
 
 interface DietDialogProps {
   admission: Admission | null;
@@ -26,22 +27,40 @@ interface DietDialogProps {
 export function DietDialog({ admission, patientName, onOpenChange }: DietDialogProps) {
   const queryClient = useQueryClient();
   const [diet, setDiet] = useState("");
+  const [observation, setObservation] = useState("");
 
   useEffect(() => {
     setDiet(admission?.diet_note ?? "");
-  }, [admission?.id, admission?.diet_note]);
+    setObservation(admission?.notes ?? "");
+  }, [admission?.id, admission?.diet_note, admission?.notes]);
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!admission) throw new Error("Internação inválida.");
-      const { error } = await supabase
-        .from("admissions")
-        .update({ diet_note: diet.trim().slice(0, 200) || null })
-        .eq("id", admission.id);
-      if (error) throw error;
+      const payload = {
+        diet_note: diet.trim().slice(0, 200) || null,
+        notes: observation.trim().slice(0, 200) || null,
+      };
+      return runOrQueue(
+        createOfflineOperation({
+          table: "admissions",
+          action: "update",
+          payload,
+          recordId: admission.id,
+        }),
+        async () => {
+          const { error } = await supabase
+            .from("admissions")
+            .update(payload)
+            .eq("id", admission.id);
+          if (error) throw error;
+        },
+      );
     },
-    onSuccess: () => {
-      toast.success("Dieta atualizada.");
+    onSuccess: ({ queued }) => {
+      toast.success(
+        queued ? "Dieta salva no aparelho e aguardando sincronização." : "Dieta atualizada.",
+      );
       queryClient.invalidateQueries();
       onOpenChange(false);
     },
@@ -56,18 +75,31 @@ export function DietDialog({ admission, patientName, onOpenChange }: DietDialogP
         <DialogHeader>
           <DialogTitle>Dieta do paciente</DialogTitle>
           <DialogDescription>
-            {patientName ? `${patientName} · ` : ""}A observação aparece na etiqueta impressa.
+            {patientName ? `${patientName} · ` : ""}
+            {formatDietLabel(diet, observation) ||
+              "Preencha a dieta e, se necessário, a observação."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="diet-note">Dieta / solicitações</Label>
+          <Label htmlFor="diet-note">Dieta</Label>
           <Textarea
             id="diet-note"
             value={diet}
             onChange={(e) => setDiet(e.target.value)}
             maxLength={200}
-            rows={3}
-            placeholder="Ex.: sem leite, mamão, sem sopa"
+            rows={2}
+            placeholder="Ex.: GERAL HAS"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="diet-observation">Observação da etiqueta</Label>
+          <Textarea
+            id="diet-observation"
+            value={observation}
+            onChange={(e) => setObservation(e.target.value)}
+            maxLength={200}
+            rows={2}
+            placeholder="Ex.: MAMÃO"
           />
         </div>
         <DialogFooter>

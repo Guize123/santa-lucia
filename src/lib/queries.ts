@@ -11,75 +11,126 @@ import type {
 } from "./domain";
 
 const cast = <T>(data: unknown): T[] => (data ?? []) as T[];
+const CACHE_PREFIX = "nutri-triage:query-cache:v1:";
+
+function readCache<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = window.localStorage.getItem(`${CACHE_PREFIX}${key}`);
+    return value ? (JSON.parse(value) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache<T>(key: string, value: T): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(value));
+  } catch {
+    // O app continua online mesmo se o dispositivo não permitir armazenamento local.
+  }
+}
+
+async function withOfflineCache<T>(key: string, request: () => Promise<T>): Promise<T> {
+  try {
+    const value = await request();
+    writeCache(key, value);
+    return value;
+  } catch (error) {
+    const cached = readCache<T>(key);
+    if (cached !== null) return cached;
+    throw error;
+  }
+}
 
 export async function fetchWards(): Promise<Ward[]> {
-  const { data, error } = await supabase.from("wards").select("*").order("name");
-  if (error) throw error;
-  return cast<Ward>(data);
+  return withOfflineCache("wards", async () => {
+    const { data, error } = await supabase.from("wards").select("*").order("name");
+    if (error) throw error;
+    return cast<Ward>(data);
+  });
 }
 
 export async function fetchWard(id: string): Promise<Ward | null> {
-  const { data, error } = await supabase.from("wards").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return (data ?? null) as Ward | null;
+  return withOfflineCache(`ward:${id}`, async () => {
+    const { data, error } = await supabase.from("wards").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return (data ?? null) as Ward | null;
+  });
 }
 
 export async function fetchRooms(wardId?: string): Promise<Room[]> {
-  let query = supabase.from("rooms").select("*").order("name");
-  if (wardId) query = query.eq("ward_id", wardId);
-  const { data, error } = await query;
-  if (error) throw error;
-  return cast<Room>(data);
+  return withOfflineCache(`rooms:${wardId ?? "all"}`, async () => {
+    let query = supabase.from("rooms").select("*").order("name");
+    if (wardId) query = query.eq("ward_id", wardId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return cast<Room>(data);
+  });
 }
 
 export async function fetchBeds(wardId?: string): Promise<Bed[]> {
-  let query = supabase.from("beds").select("*").order("label");
-  if (wardId) query = query.eq("ward_id", wardId);
-  const { data, error } = await query;
-  if (error) throw error;
-  return cast<Bed>(data);
+  return withOfflineCache(`beds:${wardId ?? "all"}`, async () => {
+    let query = supabase.from("beds").select("*").order("label");
+    if (wardId) query = query.eq("ward_id", wardId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return cast<Bed>(data);
+  });
 }
 
 export async function fetchAdmissions(options?: {
   status?: "ativa" | "alta";
   patientId?: string;
 }): Promise<Admission[]> {
-  let query = supabase.from("admissions").select("*").order("admitted_at", { ascending: false });
-  if (options?.status) query = query.eq("status", options.status);
-  if (options?.patientId) query = query.eq("patient_id", options.patientId);
-  const { data, error } = await query;
-  if (error) throw error;
-  return cast<Admission>(data);
+  const key = `admissions:${options?.status ?? "all"}:${options?.patientId ?? "all"}`;
+  return withOfflineCache(key, async () => {
+    let query = supabase.from("admissions").select("*").order("admitted_at", { ascending: false });
+    if (options?.status) query = query.eq("status", options.status);
+    if (options?.patientId) query = query.eq("patient_id", options.patientId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return cast<Admission>(data);
+  });
 }
 
 export async function fetchPatients(): Promise<Patient[]> {
-  const { data, error } = await supabase.from("patients").select("*").order("full_name");
-  if (error) throw error;
-  return cast<Patient>(data);
+  return withOfflineCache("patients", async () => {
+    const { data, error } = await supabase.from("patients").select("*").order("full_name");
+    if (error) throw error;
+    return cast<Patient>(data);
+  });
 }
 
 export async function fetchPatient(id: string): Promise<Patient | null> {
-  const { data, error } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return (data ?? null) as Patient | null;
+  return withOfflineCache(`patient:${id}`, async () => {
+    const { data, error } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return (data ?? null) as Patient | null;
+  });
 }
 
 export async function fetchScreenings(patientId?: string): Promise<Screening[]> {
-  let query = supabase.from("screenings").select("*").order("screened_at", { ascending: false });
-  if (patientId) query = query.eq("patient_id", patientId);
-  const { data, error } = await query;
-  if (error) throw error;
-  return cast<Screening>(data);
+  return withOfflineCache(`screenings:${patientId ?? "all"}`, async () => {
+    let query = supabase.from("screenings").select("*").order("screened_at", { ascending: false });
+    if (patientId) query = query.eq("patient_id", patientId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return cast<Screening>(data);
+  });
 }
 
 export async function fetchEstimates(patientId: string): Promise<AnthropometricEstimate[]> {
-  const { data, error } = await supabase
-    .from("anthropometric_estimates")
-    .select("*")
-    .eq("patient_id", patientId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return cast<AnthropometricEstimate>(data);
+  return withOfflineCache(`estimates:${patientId}`, async () => {
+    const { data, error } = await supabase
+      .from("anthropometric_estimates")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return cast<AnthropometricEstimate>(data);
+  });
 }
 
 /** Visão geral por tipo de atendimento, usada no painel inicial. */
@@ -99,8 +150,6 @@ export function buildOverview(
   admissions: Admission[],
   screenings: Screening[],
 ): CareTypeOverview[] {
-
-
   const sevenDaysAgo = Date.now() - 7 * 86400000;
 
   return (["particular", "sus", "uti"] as CareType[]).map((careType) => {

@@ -1,8 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AppShell } from "@/components/hospital/AppShell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +32,10 @@ import {
   formatDate,
   formatDateTime,
   formatNumber,
+  type Screening,
 } from "@/lib/domain";
+import { supabase } from "@/integrations/supabase/client";
+import { createOfflineOperation, runOrQueue } from "@/lib/offline";
 import {
   fetchAdmissions,
   fetchBeds,
@@ -62,6 +77,8 @@ function SourceBadge({ source, method }: { source: string | null; method: string
 
 function PacientePage() {
   const { patientId } = Route.useParams();
+  const queryClient = useQueryClient();
+  const [deletingScreening, setDeletingScreening] = useState<Screening | null>(null);
 
   const { data: patient, isPending } = useQuery({
     queryKey: ["patient", patientId],
@@ -89,6 +106,77 @@ function PacientePage() {
   const lastScreening = screenings[0];
   const bed = activeAdmission ? bedById.get(activeAdmission.bed_id) : undefined;
   const ward = bed ? wardById.get(bed.ward_id) : undefined;
+
+  const deleteScreening = useMutation({
+    mutationFn: async () => {
+      if (!deletingScreening) throw new Error("Selecione a triagem que deseja excluir.");
+
+      let queued = false;
+      const linkedEstimates = estimates.filter(
+        (estimate) => estimate.screening_id === deletingScreening.id,
+      );
+
+      for (const estimate of linkedEstimates) {
+        const result = await runOrQueue(
+          createOfflineOperation({
+            table: "anthropometric_estimates",
+            action: "delete",
+            recordId: estimate.id,
+          }),
+          async () => {
+            const { error } = await supabase
+              .from("anthropometric_estimates")
+              .delete()
+              .eq("id", estimate.id);
+            if (error) throw error;
+          },
+        );
+        queued ||= result.queued;
+      }
+
+      const result = await runOrQueue(
+        createOfflineOperation({
+          table: "screenings",
+          action: "delete",
+          recordId: deletingScreening.id,
+        }),
+        async () => {
+          const { error } = await supabase
+            .from("screenings")
+            .delete()
+            .eq("id", deletingScreening.id);
+          if (error) throw error;
+        },
+      );
+
+      return {
+        queued: queued || result.queued,
+        screeningId: deletingScreening.id,
+        estimateIds: linkedEstimates.map((estimate) => estimate.id),
+      };
+    },
+    onSuccess: ({ queued, screeningId, estimateIds }) => {
+      queryClient.setQueryData<Screening[]>(["screenings", patientId], (current = []) =>
+        current.filter((screening) => screening.id !== screeningId),
+      );
+      queryClient.setQueryData<typeof estimates>(["estimates", patientId], (current = []) =>
+        current.filter((estimate) => !estimateIds.includes(estimate.id)),
+      );
+      if (!queued) {
+        void queryClient.invalidateQueries({ queryKey: ["screenings", patientId] });
+        void queryClient.invalidateQueries({ queryKey: ["estimates", patientId] });
+      }
+      toast.success(
+        queued
+          ? "Exclusão salva no aparelho. Ela será sincronizada quando a internet voltar."
+          : "Triagem excluída com sucesso.",
+      );
+      setDeletingScreening(null);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir a triagem.");
+    },
+  });
 
   if (isPending) {
     return (
@@ -139,7 +227,6 @@ function PacientePage() {
     ...(cond["aacoc"] === false ? [{ label: "Não AACOC", alert: true }] : []),
   ];
 
-
   return (
     <AppShell
       title={patient.full_name}
@@ -165,7 +252,11 @@ function PacientePage() {
       actions={
         activeAdmission ? (
           <Button asChild>
-            <Link to="/triagem/nova/$admissionId" params={{ admissionId: activeAdmission.id }}>
+            <Link
+              to="/triagem/nova/$admissionId"
+              params={{ admissionId: activeAdmission.id }}
+              search={{ editar: undefined }}
+            >
               Nova triagem
             </Link>
           </Button>
@@ -238,7 +329,6 @@ function PacientePage() {
           <TabsTrigger value="historico">Histórico</TabsTrigger>
         </TabsList>
 
-
         <TabsContent value="resumo" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
@@ -264,9 +354,7 @@ function PacientePage() {
                     <Info label="Diagnóstico" value={activeAdmission.main_diagnosis ?? "—"} />
                   </>
                 ) : (
-                  <p className="text-muted-foreground">
-                    Paciente sem internação ativa no momento.
-                  </p>
+                  <p className="text-muted-foreground">Paciente sem internação ativa no momento.</p>
                 )}
               </CardContent>
             </Card>
@@ -366,7 +454,10 @@ function PacientePage() {
                       label="Circ. panturrilha"
                       value={formatNumber(s.calf_circumference_cm, " cm")}
                     />
-                    <Measure label="Altura do joelho" value={formatNumber(s.knee_height_cm, " cm")} />
+                    <Measure
+                      label="Altura do joelho"
+                      value={formatNumber(s.knee_height_cm, " cm")}
+                    />
                     <Measure
                       label="Dobra subescapular"
                       value={formatNumber(s.subscapular_skinfold_mm, " mm")}
@@ -510,24 +601,43 @@ function PacientePage() {
               {screenings.map((s) => (
                 <div
                   key={s.id}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl bg-surface p-4"
+                  className="grid items-center gap-3 rounded-xl bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{formatDateTime(s.screened_at)}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {s.professional_name || "profissional não informado"} · Peso{" "}
-                      {formatNumber(s.weight_kg, " kg")} ({s.weight_source ?? "origem não informada"}
-                      ) · IMC {formatNumber(s.bmi)}
+                      {formatNumber(s.weight_kg, " kg")} (
+                      {s.weight_source ?? "origem não informada"}) · IMC {formatNumber(s.bmi)}
                     </p>
                   </div>
-                  <Badge variant={s.is_reassessment ? "secondary" : "default"} className="shrink-0">
-                    {s.is_reassessment ? "Reavaliação" : "Triagem inicial"}
-                  </Badge>
+                  <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-start">
+                    <Badge variant={s.is_reassessment ? "secondary" : "default"}>
+                      {s.is_reassessment ? "Reavaliação" : "Triagem inicial"}
+                    </Badge>
+                    <Button asChild size="icon" variant="outline" title="Editar triagem">
+                      <Link
+                        to="/triagem/nova/$admissionId"
+                        params={{ admissionId: s.admission_id }}
+                        search={{ editar: s.id }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Editar triagem</span>
+                      </Link>
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      title="Excluir triagem"
+                      onClick={() => setDeletingScreening(s)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Excluir triagem</span>
+                    </Button>
+                  </div>
                 </div>
               ))}
-              <p className="pt-2 text-xs text-muted-foreground">
-                A classificação automática de risco/desnutrição não faz parte deste MVP.
-              </p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -577,6 +687,37 @@ function PacientePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog
+        open={Boolean(deletingScreening)}
+        onOpenChange={(open) => {
+          if (!open && !deleteScreening.isPending) setDeletingScreening(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta triagem?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A triagem de {deletingScreening ? formatDateTime(deletingScreening.screened_at) : ""}{" "}
+              será removida junto com seus cálculos antropométricos. O paciente e a internação não
+              serão excluídos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteScreening.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteScreening.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                deleteScreening.mutate();
+              }}
+            >
+              {deleteScreening.isPending ? "Excluindo..." : "Excluir triagem"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

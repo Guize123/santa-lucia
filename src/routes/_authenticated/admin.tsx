@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -7,6 +8,24 @@ import { AppShell } from "@/components/hospital/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -18,8 +37,9 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { CARE_TYPES, careTypeLabel, type CareType } from "@/lib/domain";
+import { CARE_TYPES, careTypeLabel, type Bed, type CareType, type Ward } from "@/lib/domain";
 import { fetchAdmissions, fetchBeds, fetchRooms, fetchWards } from "@/lib/queries";
+import { createOfflineOperation, runOrQueue } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -60,6 +80,12 @@ function AdminPage() {
   const [bedLabel, setBedLabel] = useState("");
   const [bedWard, setBedWard] = useState("");
   const [bedRoom, setBedRoom] = useState("");
+  const [editing, setEditing] = useState<{ kind: "ward" | "bed"; id: string } | null>(null);
+  const [deleting, setDeleting] = useState<{ kind: "ward" | "bed"; id: string } | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCareType, setEditCareType] = useState<CareType>("particular");
+  const [editWardId, setEditWardId] = useState("");
+  const [editRoomId, setEditRoomId] = useState("");
 
   const refresh = () => queryClient.invalidateQueries();
 
@@ -67,10 +93,14 @@ function AdminPage() {
     mutationFn: async () => {
       const name = wardName.trim();
       if (name.length < 2) throw new Error("Informe o nome da ala.");
-      const { error } = await supabase
-        .from("wards")
-        .insert({ name: name.slice(0, 80), care_type: wardCareType });
-      if (error) throw error;
+      const payload = { id: crypto.randomUUID(), name: name.slice(0, 80), care_type: wardCareType };
+      return runOrQueue(
+        createOfflineOperation({ table: "wards", action: "insert", payload }),
+        async () => {
+          const { error } = await supabase.from("wards").insert(payload);
+          if (error) throw error;
+        },
+      );
     },
     onSuccess: () => {
       toast.success("Ala criada.");
@@ -85,10 +115,14 @@ function AdminPage() {
       const name = roomName.trim();
       if (!roomWard) throw new Error("Selecione a ala da sala.");
       if (name.length < 1) throw new Error("Informe o nome da sala.");
-      const { error } = await supabase
-        .from("rooms")
-        .insert({ name: name.slice(0, 80), ward_id: roomWard });
-      if (error) throw error;
+      const payload = { id: crypto.randomUUID(), name: name.slice(0, 80), ward_id: roomWard };
+      return runOrQueue(
+        createOfflineOperation({ table: "rooms", action: "insert", payload }),
+        async () => {
+          const { error } = await supabase.from("rooms").insert(payload);
+          if (error) throw error;
+        },
+      );
     },
     onSuccess: () => {
       toast.success("Sala criada.");
@@ -103,12 +137,19 @@ function AdminPage() {
       const label = bedLabel.trim();
       if (!bedWard) throw new Error("Selecione a ala do leito.");
       if (label.length < 1) throw new Error("Informe a identificação do leito.");
-      const { error } = await supabase.from("beds").insert({
+      const payload = {
+        id: crypto.randomUUID(),
         label: label.slice(0, 40),
         ward_id: bedWard,
         room_id: bedRoom || null,
-      });
-      if (error) throw error;
+      };
+      return runOrQueue(
+        createOfflineOperation({ table: "beds", action: "insert", payload }),
+        async () => {
+          const { error } = await supabase.from("beds").insert(payload);
+          if (error) throw error;
+        },
+      );
     },
     onSuccess: () => {
       toast.success("Leito criado.");
@@ -128,14 +169,154 @@ function AdminPage() {
       id: string;
       isActive: boolean;
     }) => {
-      const { error } = await supabase.from(table).update({ is_active: !isActive }).eq("id", id);
-      if (error) throw error;
+      const payload = { is_active: !isActive };
+      return runOrQueue(
+        createOfflineOperation({ table, action: "update", payload, recordId: id }),
+        async () => {
+          const { error } = await supabase.from(table).update(payload).eq("id", id);
+          if (error) throw error;
+        },
+      );
     },
     onSuccess: () => {
       toast.success("Situação atualizada.");
       refresh();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar."),
+  });
+
+  const openWardEditor = (ward: Ward) => {
+    setEditName(ward.name);
+    setEditCareType(ward.care_type);
+    setEditing({ kind: "ward", id: ward.id });
+  };
+
+  const openBedEditor = (bed: Bed) => {
+    setEditName(bed.label);
+    setEditWardId(bed.ward_id);
+    setEditRoomId(bed.room_id ?? "");
+    setEditing({ kind: "bed", id: bed.id });
+  };
+
+  const editStructure = useMutation({
+    mutationFn: async () => {
+      if (!editing) return;
+      const name = editName.trim();
+      if (!name) throw new Error("Informe um nome válido.");
+      if (editing.kind === "ward") {
+        const payload = { name: name.slice(0, 80), care_type: editCareType };
+        return runOrQueue(
+          createOfflineOperation({
+            table: "wards",
+            action: "update",
+            payload,
+            recordId: editing.id,
+          }),
+          async () => {
+            const { error } = await supabase.from("wards").update(payload).eq("id", editing.id);
+            if (error) throw error;
+          },
+        );
+      }
+      if (!editWardId) throw new Error("Selecione a ala do leito.");
+      const payload = {
+        label: name.slice(0, 40),
+        ward_id: editWardId,
+        room_id: editRoomId || null,
+      };
+      return runOrQueue(
+        createOfflineOperation({
+          table: "beds",
+          action: "update",
+          payload,
+          recordId: editing.id,
+        }),
+        async () => {
+          const { error } = await supabase.from("beds").update(payload).eq("id", editing.id);
+          if (error) throw error;
+        },
+      );
+    },
+    onSuccess: () => {
+      toast.success("Registro atualizado.");
+      setEditing(null);
+      refresh();
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Erro ao editar registro."),
+  });
+
+  const deleteStructure = useMutation({
+    mutationFn: async () => {
+      if (!deleting) return { deactivated: false };
+      if (deleting.kind === "bed") {
+        if (usedBedIds.has(deleting.id)) {
+          const payload = { is_active: false };
+          const result = await runOrQueue(
+            createOfflineOperation({
+              table: "beds",
+              action: "update",
+              payload,
+              recordId: deleting.id,
+            }),
+            async () => {
+              const { error } = await supabase.from("beds").update(payload).eq("id", deleting.id);
+              if (error) throw error;
+            },
+          );
+          return { deactivated: true, queued: result.queued };
+        }
+        const result = await runOrQueue(
+          createOfflineOperation({ table: "beds", action: "delete", recordId: deleting.id }),
+          async () => {
+            const { error } = await supabase.from("beds").delete().eq("id", deleting.id);
+            if (error) throw error;
+          },
+        );
+        return { deactivated: false, queued: result.queued };
+      }
+
+      const hasChildren =
+        rooms.some((room) => room.ward_id === deleting.id) ||
+        beds.some((bed) => bed.ward_id === deleting.id);
+      if (hasChildren) {
+        const payload = { is_active: false };
+        const result = await runOrQueue(
+          createOfflineOperation({
+            table: "wards",
+            action: "update",
+            payload,
+            recordId: deleting.id,
+          }),
+          async () => {
+            const { error } = await supabase.from("wards").update(payload).eq("id", deleting.id);
+            if (error) throw error;
+          },
+        );
+        return { deactivated: true, queued: result.queued };
+      }
+      const result = await runOrQueue(
+        createOfflineOperation({ table: "wards", action: "delete", recordId: deleting.id }),
+        async () => {
+          const { error } = await supabase.from("wards").delete().eq("id", deleting.id);
+          if (error) throw error;
+        },
+      );
+      return { deactivated: false, queued: result.queued };
+    },
+    onSuccess: (result) => {
+      toast.success(
+        result?.queued
+          ? "Alteração salva no aparelho e aguardando sincronização."
+          : result?.deactivated
+            ? "Registro desativado para preservar o histórico."
+            : "Registro excluído.",
+      );
+      setDeleting(null);
+      refresh();
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Erro ao excluir registro."),
   });
 
   return (
@@ -204,6 +385,8 @@ function AdminPage() {
                 onToggle={() =>
                   toggleActive.mutate({ table: "wards", id: ward.id, isActive: ward.is_active })
                 }
+                onEdit={() => openWardEditor(ward)}
+                onDelete={() => setDeleting({ kind: "ward", id: ward.id })}
               />
             ))}
           </div>
@@ -338,11 +521,133 @@ function AdminPage() {
                 onToggle={() =>
                   toggleActive.mutate({ table: "beds", id: bed.id, isActive: bed.is_active })
                 }
+                onEdit={() => openBedEditor(bed)}
+                onDelete={() => setDeleting({ kind: "bed", id: bed.id })}
               />
             ))}
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar {editing?.kind === "ward" ? "ala" : "leito"}</DialogTitle>
+            <DialogDescription>
+              A alteração será refletida em todas as telas que usam este registro.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-structure-name">
+                {editing?.kind === "ward" ? "Nome da ala" : "Identificação do leito"}
+              </Label>
+              <Input
+                id="edit-structure-name"
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+                maxLength={editing?.kind === "ward" ? 80 : 40}
+              />
+            </div>
+            {editing?.kind === "ward" && (
+              <div className="space-y-2">
+                <Label>Tipo de atendimento</Label>
+                <Select
+                  value={editCareType}
+                  onValueChange={(value) => setEditCareType(value as CareType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARE_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {editing?.kind === "bed" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Ala</Label>
+                  <Select
+                    value={editWardId}
+                    onValueChange={(value) => {
+                      setEditWardId(value);
+                      setEditRoomId("");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {wards.map((ward) => (
+                        <SelectItem key={ward.id} value={ward.id}>
+                          {ward.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sala</Label>
+                  <Select
+                    value={editRoomId || "none"}
+                    onValueChange={(value) => setEditRoomId(value === "none" ? "" : value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem sala</SelectItem>
+                      {rooms
+                        .filter((room) => room.ward_id === editWardId)
+                        .map((room) => (
+                          <SelectItem key={room.id} value={room.id}>
+                            {room.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => editStructure.mutate()} disabled={editStructure.isPending}>
+              {editStructure.isPending ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este registro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Registros sem histórico serão excluídos. Quando houver internações ou registros
+              dependentes, o item será desativado para preservar os dados clínicos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteStructure.mutate()}
+              disabled={deleteStructure.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteStructure.isPending ? "Processando..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
@@ -352,11 +657,15 @@ function Row({
   subtitle,
   isActive,
   onToggle,
+  onEdit,
+  onDelete,
 }: {
   title: string;
   subtitle: string;
   isActive: boolean;
   onToggle: () => void;
+  onEdit?: (() => void) | undefined;
+  onDelete?: (() => void) | undefined;
 }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-xl border border-border bg-card p-4">
@@ -364,13 +673,23 @@ function Row({
         <p className="truncate font-semibold">{title}</p>
         <p className="mt-1 truncate text-xs text-muted-foreground">{subtitle}</p>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <Badge variant={isActive ? "default" : "secondary"}>
-          {isActive ? "Ativo" : "Inativo"}
-        </Badge>
+      <div className="flex shrink-0 items-center gap-2">
+        <Badge variant={isActive ? "default" : "secondary"}>{isActive ? "Ativo" : "Inativo"}</Badge>
         <Button variant="outline" size="sm" onClick={onToggle}>
           {isActive ? "Desativar" : "Reativar"}
         </Button>
+        {onEdit && (
+          <Button variant="outline" size="icon" onClick={onEdit} title="Editar">
+            <Pencil className="size-4" />
+            <span className="sr-only">Editar</span>
+          </Button>
+        )}
+        {onDelete && (
+          <Button variant="outline" size="icon" onClick={onDelete} title="Excluir">
+            <Trash2 className="size-4" />
+            <span className="sr-only">Excluir</span>
+          </Button>
+        )}
       </div>
     </div>
   );

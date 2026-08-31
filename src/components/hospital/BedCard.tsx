@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { BedDouble, CircleCheck, CircleSlash, UserPlus, Utensils } from "lucide-react";
+import { ClipboardList, CircleCheck, CircleSlash, UserPlus, Utensils } from "lucide-react";
 
+import { AnamnesisNote } from "@/components/hospital/AnamnesisNote";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,22 +10,27 @@ import { DietDialog } from "@/components/hospital/DietDialog";
 import {
   daysSince,
   formatDate,
+  formatDietLabel,
   type Admission,
   type Bed,
   type Patient,
+  type Screening,
 } from "@/lib/domain";
 
 interface BedCardProps {
   bed: Bed;
   admission?: Admission | undefined;
   patient?: Patient | undefined;
-  lastScreening?: string | undefined;
+  latestScreening?: Screening | undefined;
   onAdmit: (bed: Bed) => void;
 }
 
-export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: BedCardProps) {
+export function BedCard({ bed, admission, patient, latestScreening, onAdmit }: BedCardProps) {
   const [dietOpen, setDietOpen] = useState(false);
+  const [anamnesisOpen, setAnamnesisOpen] = useState(false);
   const inactive = !bed.is_active;
+  const lastScreening = latestScreening?.screened_at;
+  const dietLabel = admission ? formatDietLabel(admission.diet_note, admission.notes) : "";
 
   return (
     <Card
@@ -39,15 +45,23 @@ export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: Bed
             </p>
             <p className="mt-1 truncate font-display text-xl font-bold">{bed.label}</p>
           </div>
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
             {inactive ? (
               <CircleSlash className="size-5" aria-hidden="true" />
             ) : admission ? (
-              <BedDouble className="size-5 text-primary" aria-hidden="true" />
+              <button
+                type="button"
+                className="grid size-10 place-items-center rounded-xl text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                onClick={() => setAnamnesisOpen(true)}
+                title="Abrir colinha da anamnese"
+                aria-label="Abrir colinha da anamnese"
+              >
+                <ClipboardList className="size-5" aria-hidden="true" />
+              </button>
             ) : (
               <CircleCheck className="size-5 text-success" aria-hidden="true" />
             )}
-          </span>
+          </div>
         </div>
 
         <dl className="mt-4 grid grid-cols-2 gap-3">
@@ -90,15 +104,13 @@ export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: Bed
               </span>
             </p>
             <Badge variant={lastScreening ? "secondary" : "destructive"} className="mt-2">
-              {lastScreening
-                ? `Triado em ${formatDate(lastScreening)}`
-                : "Sem triagem registrada"}
+              {lastScreening ? `Triado em ${formatDate(lastScreening)}` : "Sem triagem registrada"}
             </Badge>
             <p className="mt-2 rounded-lg bg-muted px-3 py-2 text-xs">
               <span className="font-semibold uppercase tracking-wide text-muted-foreground">
                 Dieta:{" "}
               </span>
-              <span className="font-medium">{admission.diet_note || "não informada"}</span>
+              <span className="font-medium">{dietLabel || "não informada"}</span>
             </p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <Button asChild size="sm">
@@ -107,7 +119,11 @@ export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: Bed
                 </Link>
               </Button>
               <Button asChild size="sm" variant="outline">
-                <Link to="/triagem/nova/$admissionId" params={{ admissionId: admission.id }}>
+                <Link
+                  to="/triagem/nova/$admissionId"
+                  params={{ admissionId: admission.id }}
+                  search={{ editar: undefined }}
+                >
                   Nova triagem
                 </Link>
               </Button>
@@ -118,7 +134,7 @@ export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: Bed
                 onClick={() => setDietOpen(true)}
               >
                 <Utensils className="size-4" aria-hidden="true" />
-                {admission.diet_note ? "Editar dieta" : "Informar dieta"}
+                {dietLabel ? "Editar dieta" : "Informar dieta"}
               </Button>
             </div>
             <DietDialog
@@ -126,6 +142,14 @@ export function BedCard({ bed, admission, patient, lastScreening, onAdmit }: Bed
               patientName={patient.full_name}
               onOpenChange={setDietOpen}
             />
+            {anamnesisOpen && (
+              <AnamnesisNote
+                admission={admission}
+                patient={patient}
+                screening={latestScreening}
+                onClose={() => setAnamnesisOpen(false)}
+              />
+            )}
           </div>
         ) : (
           <div className="mt-4">

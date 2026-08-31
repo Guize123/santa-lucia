@@ -109,7 +109,6 @@
   --sidebar-ring: oklch(0.51 0.135 263);
 }
 
-
 .dark {
   --background: oklch(0.22 0.04 268);
   --surface: oklch(0.26 0.042 268);
@@ -175,6 +174,13 @@
 
 /* Etiquetas de dieta: 7,5 cm x 3 cm, com borda apenas em tela. */
 .etiqueta {
+  width: 75mm;
+  min-width: 75mm;
+  max-width: 75mm;
+  height: 30mm;
+  min-height: 30mm;
+  max-height: 30mm;
+  flex: 0 0 75mm;
   box-sizing: border-box;
   overflow: hidden;
   border: 1px solid #000;
@@ -202,7 +208,7 @@
 
   .etiquetas-print section,
   .etiquetas-print > div,
-  .etiquetas-print .flex {
+  .etiquetas-grupo {
     display: block;
     margin: 0;
     gap: 0;

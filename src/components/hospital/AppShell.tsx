@@ -1,10 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import { Activity, LogOut, Search, Settings } from "lucide-react";
-
-import hospitalLogo from "@/assets/hospital-logo.png.asset.json";
-
+import { Activity, CloudUpload, LogOut, Search, Settings, WifiOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPatients, fetchWards } from "@/lib/queries";
 import { careTypeLabel } from "@/lib/domain";
+import { OFFLINE_SYNC_EVENT, pendingOfflineOperations } from "@/lib/offline";
 
 export interface Crumb {
   label: string;
@@ -47,6 +45,8 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [online, setOnline] = useState(true);
+  const [pendingSync, setPendingSync] = useState(0);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -59,6 +59,22 @@ export function AppShell({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    const updateConnection = () => {
+      setOnline(window.navigator.onLine);
+      setPendingSync(pendingOfflineOperations());
+    };
+    updateConnection();
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+    window.addEventListener(OFFLINE_SYNC_EVENT, updateConnection);
+    return () => {
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
+      window.removeEventListener(OFFLINE_SYNC_EVENT, updateConnection);
+    };
   }, []);
 
   const { data: patients = [] } = useQuery({ queryKey: ["patients"], queryFn: fetchPatients });
@@ -77,10 +93,10 @@ export function AppShell({
         <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:flex sm:justify-between md:px-6">
           <Link to="/painel" className="flex min-w-0 items-center gap-3">
             <img
-              src={hospitalLogo.url}
+              src="/favicon.png"
               alt="Logotipo do Hospital Santa Lúcia — Hospital do Coração"
-              className="h-10 w-auto shrink-0 object-contain"
-              width={160}
+              className="size-10 shrink-0 object-contain"
+              width={40}
               height={40}
             />
             <span className="min-w-0 border-l border-border pl-3">
@@ -94,6 +110,22 @@ export function AppShell({
           </Link>
 
           <div className="flex shrink-0 items-center gap-2">
+            {(!online || pendingSync > 0) && (
+              <span
+                className="relative grid size-9 place-items-center rounded-md border border-border bg-muted text-muted-foreground"
+                title={
+                  online ? `${pendingSync} alteração(ões) aguardando sincronização` : "Modo offline"
+                }
+                aria-label={online ? "Alterações aguardando sincronização" : "Modo offline"}
+              >
+                {online ? <CloudUpload className="size-4" /> : <WifiOff className="size-4" />}
+                {pendingSync > 0 && (
+                  <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold text-white">
+                    {pendingSync}
+                  </span>
+                )}
+              </span>
+            )}
             <Button
               variant="outline"
               onClick={() => setSearchOpen(true)}
@@ -122,7 +154,10 @@ export function AppShell({
               {crumbs.map((crumb, index) => {
                 const isLast = index === crumbs.length - 1;
                 return (
-                  <span key={`${crumb.label}-${index}`} className="inline-flex items-center gap-1.5">
+                  <span
+                    key={`${crumb.label}-${index}`}
+                    className="inline-flex items-center gap-1.5"
+                  >
                     <BreadcrumbItem>
                       {isLast || !crumb.to ? (
                         <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
